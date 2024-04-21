@@ -45,6 +45,86 @@ repository state (i.e., no uncommited changes) to ensure reproducibility.
 
 ## Usage
 
+### Ansible automation
+
+These instructions assume you have prepared the server on which you would like
+to deploy *datalab*, and that it is:
+
+- accessible via SSH (using your local SSH config),
+- running Ubuntu 22.04 or a similar distro with `apt` available.
+
+It also assumes you have set up Ansible on your local machine.
+You can find instructions for this in the [Ansible documentation](https://docs.ansible.com/ansible/latest/getting_started/get_started_ansible.html).
+
+The first step is to clone this repository (or your fork) with submodules:
+
+```shell 
+git clone --recurse-submodules git@github.com:datalab-org/datalab-ansible-terraform
+```
+
+You can then navigate to the to the `./ansible` directory to begin configuring
+your deployment.
+
+There are two main sources of configuration:
+
+1. The Ansible inventory, which tells Ansible which hosts to deloy to,
+2. *datalab* configuration files.
+
+To create the Ansible inventory ([full
+documentation](https://docs.ansible.com/ansible/latest/inventory_guide/intro_inventory.html)), you need to edit the YML file
+called `inventory.yml` in the `./ansible` directory:
+
+```yaml
+ungrouped:
+  hosts:
+    <hostname>:
+      ansible_become_method: sudo
+      ansible_user: <remote_username>
+      api_url: <desired_datalab_api_url>
+      app_url: <desired_datalab_app_url>
+```
+
+where `<hostname>` and the various setting should be configured with your chosen
+values.
+
+Next, we can edit the config files in the `./vaults/datalab` directory.
+See the [online documentation](https://the-datalab.readthedocs.io/en/stable/config/) for an
+explanation of each of the settings.
+These files contain the desired *datalab* settings:
+
+1. `./vaults/datalab/prod_config.json`: the *datalab* Python config file.
+2. `./vaults/datalab/.env_server`: the secrets required by the server as an env
+   file (e.g., keys to external integration with GitHub, ORCID).
+3. `./vaults/datalab/.env`: any variables required by the web app.
+
+It is recommended that you version control these files **with encryption** and commit it to your
+fork.
+To encrypt them, you can run
+
+```shell
+ansible-vault encrypt inventory vaults/datalab/prod_config.json vaults/datalab/.env vaults/datalab/.env_server
+```
+
+and provide a password when prompted (which will then need to be kept safe and
+used every time the Ansible playbook is run).
+You should never commit these files directly without encryption.
+
+Once all these configuration steps have been performed, we can try to execute
+the Ansible "playbook" that will install all the pre-requisite services, build
+the Docker containers as configured, connect them via Nginx and add hardening
+services such as fail2ban to the server.
+
+This is achieved by running:
+
+```shell
+ansible-playbook --ask-vault-pass -i inventory.yml playbook.yml 
+```
+
+If completed successfully, the server should now be running a *datalab*
+instance at your configured URL!
+
+If you are using your own domain, you will need to update your DNS settings so that your domain name points to the IP of the server as given in your inventory file.
+
 ### Cloud provisioning
 
 These instructions will use OpenTofu, an open source fork of Terraform. 

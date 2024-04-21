@@ -2,7 +2,7 @@
 - name: Sync local datalab submodule with remote
   ansible.posix.synchronize:
     src: "{{ playbook_dir }}/../src/datalab"
-    dest: "/home/{{ ansible_ssh_user }}/datalab"
+    dest: "/home/{{ ansible_ssh_user }}"
     recursive: true
     delete: false
 
@@ -24,7 +24,24 @@
     dest: "/home/{{ ansible_ssh_user }}/datalab/webapp/.env"
     mode: "0644"
 
-- name: Build and launch containers
+- name: Build and launch database container
   community.docker.docker_compose_v2:
     project_src: "/home/{{ ansible_ssh_user }}/datalab"
-    profiles: production
+    profiles: prod
+    services: database
+
+- name: Build and launch API container
+  community.docker.docker_compose_v2:
+    project_src: "/home/{{ ansible_ssh_user }}/datalab"
+    profiles: prod
+    services: api
+    env_files:
+      - "/home/{{ ansible_ssh_user }}/datalab/pydatalab/.env"
+
+- name: Build and launch app container
+  community.docker.docker_compose_v2:
+    project_src: "/home/{{ ansible_ssh_user }}/datalab"
+    profiles: prod
+    services: app
+    env_files: 
+      - "/home/{{ ansible_ssh_user }}/datalab/webapp/.env"

@@ -1,4 +1,4 @@
-> :siren: This README is currently out of date with the playbooks defined in
+> 🚨 This README is currently out of date with the playbooks defined in
 > this repository. More instructions will be added soon.
 
 # Deploying datalab

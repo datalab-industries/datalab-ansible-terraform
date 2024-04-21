@@ -5,6 +5,7 @@
     - docker
     - datalab
     - nginx
+    - fail2ban
 
   tasks:
     - name: Keep all packages up-to-date

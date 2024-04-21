@@ -1,0 +1,7 @@
+ungrouped:
+  hosts:
+    <hostname>:
+      ansible_become_method: sudo
+      ansible_user: <remote_username>
+      api_url: <desired_datalab_api_url>
+      app_url: <desired_datalab_app_url>

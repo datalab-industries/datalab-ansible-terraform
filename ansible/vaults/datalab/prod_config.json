@@ -1,0 +1,11 @@
+{
+    "FILE_DIRECTORY": "/app/files",
+    "BEHIND_REVERSE_PROXY": true,
+    "DEBUG": false,
+    "REMOTE_CACHE_MAX_AGE": 120,
+    "REMOTE_CACHE_MIN_AGE": 5,
+    "MONGO_URI": "mongodb://database:27017/datalab",
+    "IDENTIFIER_PREFIX": "EDIT ME",
+    "GITHUB_ORG_ALLOW_LIST": [],
+    "REMOTE_FILESYSTEMS": []
+}

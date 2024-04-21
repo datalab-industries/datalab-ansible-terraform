@@ -1,0 +1,32 @@
+---
+- name: Sync local datalab submodule with remote
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../src/cliffe-group-datalab"
+    dest: "/home/{{ ansible_ssh_user }}"
+    recursive: true
+    delete: false
+
+- name: Copy encrypted API env file from vault
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/vaults/cliffe-group-datalab/.env_server"
+    dest: "/home/{{ ansible_ssh_user }}/cliffe-group-datalab"
+    mode: "0644"
+
+- name: Copy encrypted API config file from vault
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/vaults/cliffe-group-datalab/prod_config.json"
+    dest: "/home/{{ ansible_ssh_user }}/cliffe-group-datalab"
+    mode: "0644"
+
+- name: Copy encrypted app config file from vault
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/vaults/cliffe-group-datalab/.env"
+    dest: "/home/{{ ansible_ssh_user }}/cliffe-group-datalab"
+    mode: "0644"
+
+- name: Build and launch API containers
+  community.docker.docker_compose_v2:
+    project_src: "/home/{{ ansible_ssh_user }}/cliffe-group-datalab"
+    profiles: production
+    services:
+      - api

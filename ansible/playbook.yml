@@ -1,0 +1,12 @@
+---
+- hosts: all
+  roles:
+    - setup
+    - docker
+    - datalab
+    - nginx
+
+  tasks:
+    - name: Keep all packages up-to-date
+      include_role:
+        name: apt_upgrade

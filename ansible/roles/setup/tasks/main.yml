@@ -1,0 +1,17 @@
+---
+- name: Install aptitude
+  become: yes
+  apt:
+    name: aptitude
+    state: latest
+    update_cache: true
+
+- name: Install required system packages
+  become: yes
+  apt:
+    pkg:
+      - ca-certificates
+      - python3-pip
+    state: latest
+    update_cache: true
+

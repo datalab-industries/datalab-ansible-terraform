@@ -1,0 +1,87 @@
+upstream datalab {
+    server 127.0.0.1:8081;
+}
+
+upstream pydatalab {
+    server 127.0.0.1:5001;
+}
+
+map $remote_addr $internal {
+  default 0;
+}
+
+# App server
+server {
+  listen 443 ssl;
+  include nginx_ssl.conf;
+
+  client_max_body_size 500M;
+
+  # set the correct host(s) for your site
+  server_name {{ app_url }};
+
+  location /503.html {
+    root /app/static;
+  }
+
+  location / {
+
+    set $maintenance 0;
+    if (-f /etc/nginx/static/datalab_maintenance_on) {
+       set $maintenance 1;
+    }
+    if ($internal != 1) {
+      set $maintenance "${maintenance}1";
+    }
+    if ($maintenance = 11) {
+      return 503;
+    }
+
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $http_host;
+    # we don't want nginx trying to do something clever with
+    # redirects, we set the Host: header above already.
+    proxy_redirect off;
+    proxy_pass http://datalab;
+  }
+
+  error_page 503 /503.html;
+
+}
+
+# API server
+server {
+  listen 443 ssl;
+  include nginx_ssl.conf;
+  client_max_body_size 500M;
+
+  # set the correct host(s) for your site
+  server_name {{ api_url }};
+
+  location /503.html {
+    root /app/static;
+  }
+
+  location / {
+    set $maintenance 0;
+    if (-f /etc/nginx/static/datalab_maintenance_on) {
+       set $maintenance 1;
+    }
+    if ($internal != 1) {
+      set $maintenance "${maintenance}1";
+    }
+    if ($maintenance = 11) {
+      return 503;
+    }
+
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $http_host;
+    # we don't want nginx trying to do something clever with
+    # redirects, we set the Host: header above already.
+    proxy_redirect off;
+    proxy_pass http://pydatalab;
+  }
+  error_page 503 /503.html;
+}

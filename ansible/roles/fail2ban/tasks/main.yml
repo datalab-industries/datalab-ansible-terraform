@@ -1,0 +1,40 @@
+---
+- name: install
+  become: yes
+  apt:
+    pkg:
+    - fail2ban
+    state: latest
+    update_cache: true
+
+- name: update config file
+  become: yes
+  template:
+    src: etc/fail2ban/fail2ban.local.j2
+    dest: /etc/fail2ban/fail2ban.local
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart fail2ban
+
+- name: update configuration file - /etc/fail2ban/jail.local
+  become: yes
+  template:
+    src: etc/fail2ban/jail.local.j2
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart fail2ban
+
+- name: copy filters
+  become: yes
+  copy:
+    src: "{{ item }}"
+    dest: /etc/fail2ban/filter.d/
+    owner: root
+    group: root
+    mode: 0644
+  with_fileglob:
+    - "filters/*.conf"
+  notify: restart fail2ban

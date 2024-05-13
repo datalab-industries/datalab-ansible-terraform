@@ -5,7 +5,7 @@
   ansible.posix.mount:
     path: /data
     src: "{{ mount_data_disk | default('') }}"
-    fstype: ext4
+    fstype: "{{ data_disk_type | default('xfs') }}"
     state: mounted
 
 - name: Install aptitude

@@ -5,3 +5,4 @@ ungrouped:
       ansible_user: <remote_username>
       api_url: <desired_datalab_api_url>
       app_url: <desired_datalab_app_url>
+      mount_data_disk: <disk device file location, e.g., /dev/sda, /dev/sdb or otherwise>

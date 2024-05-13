@@ -1,6 +1,3 @@
-> 🚨 This README is currently out of date with the playbooks defined in
-> this repository. More instructions will be added soon.
-
 # Deploying datalab
 
 This repository contains tools and rules for automatically deploying datalab instances using Terraform/OpenTofu and Ansible.

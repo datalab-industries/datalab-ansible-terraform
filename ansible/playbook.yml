@@ -1,13 +1,19 @@
 ---
 - hosts: all
   roles:
-    - setup
-    - docker
-    - datalab
-    - nginx
-    - fail2ban
+    - role: setup
+      tags: [setup]
+    - role: docker
+      tags: [setup]
+    - role: fail2ban
+      tags: [setup]
+    - role: datalab
+      tags: [deploy]
+    - role: nginx
+      tags: [setup]
 
   tasks:
     - name: Keep all packages up-to-date
       include_role:
         name: apt_upgrade
+      tags: [setup, maintenance]

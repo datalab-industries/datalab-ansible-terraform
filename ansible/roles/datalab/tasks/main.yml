@@ -35,6 +35,7 @@
     project_src: "/home/{{ ansible_ssh_user }}/datalab"
     profiles: prod
     services: api
+    build: always
     env_files:
       - "/home/{{ ansible_ssh_user }}/datalab/pydatalab/.env"
 
@@ -43,5 +44,15 @@
     project_src: "/home/{{ ansible_ssh_user }}/datalab"
     profiles: prod
     services: app
+    build: always
     env_files: 
       - "/home/{{ ansible_ssh_user }}/datalab/webapp/.env"
+
+- name: Add daily backup task to crontab
+  ansible.builtin.cron:
+    name: "Daily snapshots"
+    minute: "5"
+    hour: "4"
+    day: "*"
+    month: "*"
+    job: "cd /home/{{ ansible_ssh_user }}/datalab; docker compose exec api pipenv run invoke admin.create-backup --strategy-name daily-snapshots"

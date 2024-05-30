@@ -99,7 +99,7 @@ fork.
 To encrypt them, you can run
 
 ```shell
-ansible-vault encrypt inventory vaults/datalab/prod_config.json vaults/datalab/.env vaults/datalab/.env_server
+ansible-vault encrypt inventory.yml vaults/datalab/prod_config.json vaults/datalab/.env vaults/datalab/.env_server
 ```
 
 and provide a password when prompted (which will then need to be kept safe and
@@ -155,7 +155,7 @@ To now request the resources from the provider and initialise any VMs, we apply
 the plan with:
 
 ```shell
-tofu -chdir=terraform/azure apply
+tofu -chdir=terraform/azure apply main.tfplan
 ```
 
 > [!WARNING]

@@ -138,23 +138,24 @@ tofu -chdir=terraform init
 This will initialise your local machine and guide you through any additional
 steps (such as installing cloud provider APIs, authenticating against them, etc.).
 
-The next step is to adjust any of the variables in `./terraform/variables.tf` for your deployment, for example, the desired location of VMs, the usernames for any local accounts to be created on the VM.
+The next step is to adjust any of the variables in `./terraform/azure/variables.tf` for your deployment, for example, the desired location of VMs, the usernames for any local accounts to be created on the VM.
 
 As of writing, only Azure is supported as a cloud provider, but in the future we will aim to abstract these variables somewhat to enable other providers.
+As such, you will need to have the [https://learn.microsoft.com/en-us/cli/azure/](Azure CLI) installed locally.
 
 The next step is to generate plan of your infrastructure, without actually
 provisioninig the hardware.
 This can be achieved with 
 
 ```shell
-tofu -chdir=terraform plan -out main.tfplan
+tofu -chdir=terraform/azure plan -out main.tfplan
 ```
 
 To now request the resources from the provider and initialise any VMs, we apply
 the plan with:
 
 ```shell
-tofu -chdir=terraform apply
+tofu -chdir=terraform/azure apply
 ```
 
 > [!WARNING]
@@ -164,20 +165,20 @@ Providing that the variables for the given cloud provider have been set correctl
 For example, using the Azure provider, you should now be able to locally query your instance with the `az` CLI, using info provided by OpenTofu.
 
 ```shell
-resource_group_name=$(tofu -chdir=terraform output -raw resource_group_name)
+resource_group_name=$(tofu -chdir=terraform/azure output -raw resource_group_name)
 az vm list --resource-group $resource_group_name --query "[].{\"VM Name\":name}" -o table
 ```
 
 You can destroy running resources by first, naturally, plotting their destruction:
 
 ```shell
-tofu -chdir=terraform plan -destroy -out main.destroy.tfplan
+tofu -chdir=terraform/azure plan -destroy -out main.destroy.tfplan
 ```
 
 then applying it
 
 ```shell
-tofu -chdir=terraform apply main.destroy.tfplan
+tofu -chdir=terraform/azure apply main.destroy.tfplan
 ```
 
 This will also destroy attached storage (rarely desirable), so care must be taken when executing this plan.

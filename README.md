@@ -141,7 +141,7 @@ steps (such as installing cloud provider APIs, authenticating against them, etc.
 The next step is to adjust any of the variables in `./terraform/azure/variables.tf` for your deployment, for example, the desired location of VMs, the usernames for any local accounts to be created on the VM.
 
 As of writing, only Azure is supported as a cloud provider, but in the future we will aim to abstract these variables somewhat to enable other providers.
-As such, you will need to have the [https://learn.microsoft.com/en-us/cli/azure/](Azure CLI) installed locally.
+As such, you will need to have the [https://learn.microsoft.com/en-us/cli/azure/](Azure CLI) installed locally (and logged in, via `az login`).
 
 The next step is to generate plan of your infrastructure, without actually
 provisioninig the hardware.

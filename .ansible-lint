@@ -7,3 +7,7 @@ exclude_paths:
   - .cache
   - .github
   - .pre-commit-config.yaml
+
+skip_list:
+  - name[template]
+  - yaml[line-length]

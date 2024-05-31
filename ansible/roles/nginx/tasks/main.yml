@@ -23,16 +23,19 @@
   ansible.builtin.file:
     path: /home/{{ ansible_ssh_user }}/nginx/rendered/include
     state: directory
+    mode: "0644"
 
 - name: Render templated datalab config
   ansible.builtin.template:
     src: nginx_datalab.conf.j2
     dest: /home/{{ ansible_ssh_user }}/nginx/rendered/include/nginx_datalab.conf
+    mode: "0644"
 
 - name: Render templated SSL config
   ansible.builtin.template:
     src: nginx_ssl.conf.j2
     dest: /home/{{ ansible_ssh_user }}/nginx/rendered/nginx_ssl.conf
+    mode: "0644"
 
 - name: Build nginx image
   community.docker.docker_image:
@@ -65,5 +68,5 @@
       - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot
     restart_policy: always
-    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot certonly --webroot -w /var/www/certbot --agree-tos --no-eff-email -d {{ api_url }} -d {{ app_url }};
-      sleep 24h & wait $${!}; done;'
+    entrypoint: |
+      /bin/sh -c 'trap exit TERM; while :; do certbot certonly --webroot -w /var/www/certbot --agree-tos --no-eff-email -d {{ api_url }} -d {{ app_url }}; sleep 24h & wait $${!}; done;'

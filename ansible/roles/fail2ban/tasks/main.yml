@@ -4,7 +4,7 @@
   ansible.builtin.apt:
     pkg:
       - fail2ban
-    state: latest
+    state: present
     update_cache: true
 
 - name: Update config file

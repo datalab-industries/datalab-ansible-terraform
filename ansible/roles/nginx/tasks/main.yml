@@ -14,7 +14,7 @@
     state: present
     force_source: true
 
-- name: Synchronize nginx files to remote 
+- name: Synchronize nginx files to remote
   synchronize:
     src: "{{ role_path }}/files/"
     dest: "/home/{{ ansible_ssh_user }}/nginx"

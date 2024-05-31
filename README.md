@@ -5,7 +5,7 @@ It should be forked and used as a template for deploying your own datalab instan
 Use of Terraform for cloud provisioning is OPTIONAL; the Ansible playbooks are sufficient to set up a datalab instance on a existing hardware.
 The Ansible playbooks can even be used to deploy datalab on shared hardware; all mandatory services will be deployed within containers, so it is possible to set up the full NGINX + datalab stack alongside an existing reverse proxy managing other services, although this will need to be configured by the user.
 
-Ideally, various aspects of the configuration will be transferrable, and thus only instance-specific configuration will need to be provided (e.g., usernames, domain names), in which case your instance version of this repository can be kept fairly in-sync with the main branch (which will continue to be updated as datalab's requirements grow and change). 
+Ideally, various aspects of the configuration will be transferrable, and thus only instance-specific configuration will need to be provided (e.g., usernames, domain names), in which case your instance version of this repository can be kept fairly in-sync with the main branch (which will continue to be updated as datalab's requirements grow and change).
 
 Attempts will be made to tabulate the supported versions of datalab with each release of from this repository.
 
@@ -55,7 +55,7 @@ You can find instructions for this in the [Ansible documentation](https://docs.a
 
 The first step is to clone this repository (or your fork) with submodules:
 
-```shell 
+```shell
 git clone --recurse-submodules git@github.com:datalab-org/datalab-ansible-terraform
 ```
 
@@ -114,7 +114,7 @@ services such as fail2ban to the server.
 This is achieved by running:
 
 ```shell
-ansible-playbook --ask-vault-pass -i inventory.yml playbook.yml 
+ansible-playbook --ask-vault-pass -i inventory.yml playbook.yml
 ```
 
 If completed successfully, the server should now be running a *datalab*
@@ -124,7 +124,7 @@ If you are using your own domain, you will need to update your DNS settings so t
 
 ### Cloud provisioning
 
-These instructions will use OpenTofu, an open source fork of Terraform. 
+These instructions will use OpenTofu, an open source fork of Terraform.
 You should install OpenTofu for your local machine by following the instructions in the [OpenTofu docs](https://opentofu.org/docs/intro/install/).
 OpenTofu will let you authenticate your local machine with your cloud provider (with provider-specific instructions) and perform the kind of operations you would normally have to do in your cloud providers' dashboard.
 Here, we use it to simply provision a Linux VM (of configurable size) and associated storage.
@@ -145,7 +145,7 @@ As such, you will need to have the [https://learn.microsoft.com/en-us/cli/azure/
 
 The next step is to generate plan of your infrastructure, without actually
 provisioninig the hardware.
-This can be achieved with 
+This can be achieved with
 
 ```shell
 tofu -chdir=terraform/azure plan -out main.tfplan

@@ -45,7 +45,7 @@
     profiles: prod
     services: app
     build: always
-    env_files: 
+    env_files:
       - "/home/{{ ansible_ssh_user }}/datalab/webapp/.env"
 
 - name: Add daily backup task to crontab

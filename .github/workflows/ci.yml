@@ -29,6 +29,5 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run pre-commit
-        working-directory: ./pydatalab
         run: |
           pre-commit run --all-files --show-diff-on-failure

@@ -1,5 +1,6 @@
 ---
-- hosts: all
+- name: Create and maintain a datalab
+  hosts: all
   roles:
     - role: setup
       tags: [setup]

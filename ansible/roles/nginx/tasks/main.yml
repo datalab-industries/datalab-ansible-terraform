@@ -15,24 +15,24 @@
     force_source: true
 
 - name: Synchronize nginx files to remote
-  synchronize:
+  ansible.posix.synchronize:
     src: "{{ role_path }}/files/"
-    dest: "/home/{{ ansible_ssh_user }}/nginx"
+    dest: /home/{{ ansible_ssh_user }}/nginx
 
 - name: Make directory for rendered templates
-  file:
-    path: "/home/{{ ansible_ssh_user }}/nginx/rendered/include"
+  ansible.builtin.file:
+    path: /home/{{ ansible_ssh_user }}/nginx/rendered/include
     state: directory
 
 - name: Render templated datalab config
-  template:
+  ansible.builtin.template:
     src: nginx_datalab.conf.j2
-    dest: "/home/{{ ansible_ssh_user }}/nginx/rendered/include/nginx_datalab.conf"
+    dest: /home/{{ ansible_ssh_user }}/nginx/rendered/include/nginx_datalab.conf
 
 - name: Render templated SSL config
-  template:
+  ansible.builtin.template:
     src: nginx_ssl.conf.j2
-    dest: "/home/{{ ansible_ssh_user }}/nginx/rendered/nginx_ssl.conf"
+    dest: /home/{{ ansible_ssh_user }}/nginx/rendered/nginx_ssl.conf
 
 - name: Build nginx image
   community.docker.docker_image:
@@ -41,7 +41,7 @@
     state: present
     force_source: true
     build:
-      path: "/home/{{ ansible_ssh_user }}/nginx"
+      path: /home/{{ ansible_ssh_user }}/nginx
 
 - name: Launch nginx container
   community.docker.docker_container:
@@ -52,8 +52,8 @@
       - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot
     ports:
-      - "80:80"
-      - "443:443"
+      - 80:80
+      - 443:443
     restart_policy: always
 
 - name: Launch certbot container that renews every 24h
@@ -65,4 +65,5 @@
       - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot
     restart_policy: always
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot certonly --webroot -w /var/www/certbot --agree-tos --no-eff-email -d {{ api_url }} -d {{ app_url }}; sleep 24h & wait $${!}; done;'"
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot certonly --webroot -w /var/www/certbot --agree-tos --no-eff-email -d {{ api_url }} -d {{ app_url }};
+      sleep 24h & wait $${!}; done;'

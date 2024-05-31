@@ -1,7 +1,8 @@
+exclude: ^src/.*
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
-    exclude: "./src"
     hooks:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
@@ -13,8 +14,9 @@ repos:
       - id: mixed-line-ending
 
   - repo: https://github.com/ansible/ansible-lint
-    rev: "v24.5.0"
+    rev: v24.5.0
     hooks:
       - id: ansible-lint
         additional_dependencies:
           - ansible
+        args: [--fix, ]

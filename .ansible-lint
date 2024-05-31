@@ -1,0 +1,9 @@
+---
+# .ansible-lint
+
+exclude_paths:
+  - src
+  - terrafrom
+  - .cache
+  - .github
+  - .pre-commit-config.yaml

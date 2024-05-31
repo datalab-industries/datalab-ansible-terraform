@@ -1,33 +1,33 @@
 ---
 - name: Add Docker GPG apt Key
-  become: yes
-  apt_key:
+  become: true
+  ansible.builtin.apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     state: present
 
 - name: Add Docker Repository
-  become: yes
-  apt_repository:
+  become: true
+  ansible.builtin.apt_repository:
     repo: deb https://download.docker.com/linux/ubuntu focal stable
     state: present
 
 - name: Update apt and install docker-ce
-  become: yes
-  apt:
+  become: true
+  ansible.builtin.apt:
     name: docker-ce
     state: latest
     update_cache: true
 
 - name: Install Docker Module for Python
-  pip:
+  ansible.builtin.pip:
     name: docker
 
 - name: Add user '{{ ansible_ssh_user }}' to docker group
-  become: yes
-  user:
-    name: '{{ ansible_ssh_user }}'
+  become: true
+  ansible.builtin.user:
+    name: "{{ ansible_ssh_user }}"
     groups: docker
-    append: yes
+    append: true
     state: present
 
 - name: Reset ssh connection to allow user changes to affect ansible user

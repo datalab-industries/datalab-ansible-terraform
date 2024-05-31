@@ -1,10 +1,10 @@
 # handlers file for datalab
 ---
-- name: restart datalab API container
+- name: Restart datalab API container
   community.docker.docker_container:
     name: datalab-api
     image: datalab/datalab-api:latest
-    state: "started"
+    state: started
     restart: true
-  listen: "restart datalab"
-  become: yes
+  listen: restart datalab
+  become: true

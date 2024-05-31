@@ -1,6 +1,6 @@
 ---
 - name: Mount data disk (if requested)
-  become: yes
+  become: true
   when: mount_data_disk is defined and mount_data_disk != ''
   ansible.posix.mount:
     path: /data
@@ -9,17 +9,17 @@
     state: mounted
 
 - name: Install aptitude
-  become: yes
-  apt:
+  become: true
+  ansible.builtin.apt:
     name: aptitude
-    state: latest
+    state: present
     update_cache: true
 
 - name: Install required system packages
-  become: yes
-  apt:
+  become: true
+  ansible.builtin.apt:
     pkg:
       - ca-certificates
       - python3-pip
-    state: latest
+    state: present
     update_cache: true

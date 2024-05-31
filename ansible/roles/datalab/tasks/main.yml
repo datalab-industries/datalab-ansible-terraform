@@ -2,57 +2,57 @@
 - name: Sync local datalab submodule with remote
   ansible.posix.synchronize:
     src: "{{ playbook_dir }}/../src/datalab"
-    dest: "/home/{{ ansible_ssh_user }}"
+    dest: /home/{{ ansible_ssh_user }}
     recursive: true
     delete: false
 
 - name: Copy encrypted API env file from vault
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/vaults/datalab/.env_server"
-    dest: "/home/{{ ansible_ssh_user }}/datalab/pydatalab/.env"
+    dest: /home/{{ ansible_ssh_user }}/datalab/pydatalab/.env
     mode: "0644"
 
 - name: Copy encrypted API config file from vault
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/vaults/datalab/prod_config.json"
-    dest: "/home/{{ ansible_ssh_user }}/datalab/pydatalab/config.json"
+    dest: /home/{{ ansible_ssh_user }}/datalab/pydatalab/config.json
     mode: "0644"
 
 - name: Copy encrypted app config file from vault
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/vaults/datalab/.env"
-    dest: "/home/{{ ansible_ssh_user }}/datalab/webapp/.env"
+    dest: /home/{{ ansible_ssh_user }}/datalab/webapp/.env
     mode: "0644"
 
 - name: Build and launch database container
   community.docker.docker_compose_v2:
-    project_src: "/home/{{ ansible_ssh_user }}/datalab"
+    project_src: /home/{{ ansible_ssh_user }}/datalab
     profiles: prod
     services: database
 
 - name: Build and launch API container
   community.docker.docker_compose_v2:
-    project_src: "/home/{{ ansible_ssh_user }}/datalab"
+    project_src: /home/{{ ansible_ssh_user }}/datalab
     profiles: prod
     services: api
     build: always
     env_files:
-      - "/home/{{ ansible_ssh_user }}/datalab/pydatalab/.env"
+      - /home/{{ ansible_ssh_user }}/datalab/pydatalab/.env
 
 - name: Build and launch app container
   community.docker.docker_compose_v2:
-    project_src: "/home/{{ ansible_ssh_user }}/datalab"
+    project_src: /home/{{ ansible_ssh_user }}/datalab
     profiles: prod
     services: app
     build: always
     env_files:
-      - "/home/{{ ansible_ssh_user }}/datalab/webapp/.env"
+      - /home/{{ ansible_ssh_user }}/datalab/webapp/.env
 
 - name: Add daily backup task to crontab
   ansible.builtin.cron:
-    name: "Daily snapshots"
+    name: Daily snapshots
     minute: "5"
     hour: "4"
     day: "*"
     month: "*"
-    job: "cd /home/{{ ansible_ssh_user }}/datalab; docker compose exec api pipenv run invoke admin.create-backup --strategy-name daily-snapshots"
+    job: cd /home/{{ ansible_ssh_user }}/datalab; docker compose exec api pipenv run invoke admin.create-backup --strategy-name daily-snapshots

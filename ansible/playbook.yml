@@ -14,6 +14,6 @@
 
   tasks:
     - name: Keep all packages up-to-date
-      include_role:
+      ansible.builtin.include_role:
         name: apt_upgrade
       tags: [setup, maintenance]

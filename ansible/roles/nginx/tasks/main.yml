@@ -10,7 +10,7 @@
 - name: Build/pull certbot image
   community.docker.docker_image:
     name: certbot/certbot:latest
-    source: build
+    source: pull
     state: present
     force_source: true
 

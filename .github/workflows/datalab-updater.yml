@@ -17,3 +17,4 @@ jobs:
         with:
           renovate-version: full
           token: ${{ secrets.RENOVATE_TOKEN }}
+          configurationFile: .github/workflows/renovate-config.json

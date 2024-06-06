@@ -1,0 +1,7 @@
+{
+  "onboarding": true,
+  "platform": "github",
+  "repositories": [
+    "datalab-industries/datalab-ansible-terraform"
+  ]
+}

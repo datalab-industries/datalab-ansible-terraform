@@ -42,5 +42,5 @@
 - name: Start fail2ban (with systemd)
   ansible.builtin.systemd:
     name: fail2ban
-    state: "started"
+    state: started
   become: true

@@ -1,0 +1,19 @@
+---
+name: Datalab renovation
+on:
+  schedule:
+    - cron: "0 3 * * *"  # every day at 3am
+  workflow_dispatch:
+
+jobs:
+  renovate:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Renovate bot
+        uses: renovate/github-action@v40.1.11
+        with:
+          renovate-version: full
+          token: ${{ secrets.RENOVATE_TOKEN }}

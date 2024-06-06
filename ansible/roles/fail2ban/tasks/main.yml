@@ -38,3 +38,9 @@
   with_fileglob:
     - filters/*.conf
   notify: restart fail2ban
+
+- name: Start fail2ban (with systemd)
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: "started"
+  become: true

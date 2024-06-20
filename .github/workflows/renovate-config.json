@@ -1,7 +1,9 @@
 {
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "onboarding": true,
   "platform": "github",
   "repositories": [
     "datalab-industries/datalab-ansible-terraform"
-  ]
+  ],
+  "prhourlylimit": 10
 }

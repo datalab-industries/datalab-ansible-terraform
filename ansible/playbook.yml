@@ -11,7 +11,7 @@
     - role: datalab
       tags: [deploy]
     - role: nginx
-      tags: [setup]
+      tags: [setup,maintenance]
 
   tasks:
     - name: Keep all packages up-to-date

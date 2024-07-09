@@ -10,13 +10,22 @@
 </div>
 
 This repository contains tools and rules for automatically deploying datalab instances using Terraform/OpenTofu and Ansible.
-It should be forked and used as a template for deploying your own datalab instance.
+It can be used as a template for deploying your own datalab instance, and optionally periodically resynced on new releases.
+
 Use of Terraform for cloud provisioning is OPTIONAL; the Ansible playbooks are sufficient to set up a datalab instance on a existing hardware.
 The Ansible playbooks can even be used to deploy datalab on shared hardware; all mandatory services will be deployed within containers, so it is possible to set up the full NGINX + datalab stack alongside an existing reverse proxy managing other services, although this will need to be configured by the user.
 
 Ideally, various aspects of the configuration will be transferrable, and thus only instance-specific configuration will need to be provided (e.g., usernames, domain names), in which case your instance version of this repository can be kept fairly in-sync with the main branch (which will continue to be updated as datalab's requirements grow and change).
 
 Attempts will be made to tabulate the supported versions of datalab with each release of from this repository.
+
+## Supported versions
+
+| This repository version | *datalab* version |
+|---|---|
+| v0.1.x | v0.4.x |
+
+
 
 ## Overview
 
@@ -31,6 +40,7 @@ Implemented providers:
 Planned providers:
 
 - OpenStack
+- Hetzner
 
 ### Infrastructure automation with Ansible
 

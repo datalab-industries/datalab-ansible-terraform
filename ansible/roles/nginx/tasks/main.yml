@@ -23,7 +23,7 @@
   ansible.builtin.file:
     path: /home/{{ ansible_ssh_user }}/nginx/rendered/include
     state: directory
-    mode: "0644"
+    mode: "0755"
 
 - name: Render templated datalab config
   ansible.builtin.template:

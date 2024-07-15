@@ -72,5 +72,5 @@
     minute: "5"
     hour: "2"
     day: "1"
-    month: "1,4,7,10"
+    month: 1,4,7,10
     job: cd /home/{{ ansible_ssh_user }}/datalab; docker compose exec api pipenv run invoke admin.create-backup --strategy-name quarterly-snapshots

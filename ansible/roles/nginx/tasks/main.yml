@@ -56,7 +56,7 @@
       - certbot-www:/var/www/certbot
     restart_policy: always
 
-- name: Launch certbot container that renews every 24h
+- name: Launch certbot container
   community.docker.docker_container:
     name: datalab-certbot
     image: certbot/certbot:latest
@@ -65,5 +65,17 @@
       - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot
     restart_policy: always
-    entrypoint: |
-      /bin/sh -c 'trap exit TERM; while :; do certbot certonly --webroot -w /var/www/certbot --agree-tos --no-eff-email -d {{ app_url }} -d {{ api_url }}; sleep 24h & wait $${!}; done;'
+    detach: true
+    entrypoint:
+      - /bin/sh
+      - -c
+      - certbot renew
+
+- name: Scheduled SSL renewal with certbot
+  ansible.builtin.cron:
+    name: SSL renewal with certbot
+    minute: "38"
+    hour: "10"
+    day: "2"
+    month: "*"
+    job: docker run -v certbot-www:/var/www/certbot -v certbot-conf:/etc/letsencrypt certbot/certbot:latest renew

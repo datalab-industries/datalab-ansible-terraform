@@ -56,3 +56,21 @@
     day: "*"
     month: "*"
     job: cd /home/{{ ansible_ssh_user }}/datalab; docker compose exec api pipenv run invoke admin.create-backup --strategy-name daily-snapshots
+
+- name: Add weekly backup task to crontab
+  ansible.builtin.cron:
+    name: Weekly snapshots
+    minute: "5"
+    hour: "5"
+    day: "7"
+    month: "*"
+    job: cd /home/{{ ansible_ssh_user }}/datalab; docker compose exec api pipenv run invoke admin.create-backup --strategy-name weekly-snapshots
+
+- name: Add quarterly backup task to crontab
+  ansible.builtin.cron:
+    name: Quarterly snapshots
+    minute: "5"
+    hour: "2"
+    day: "1"
+    month: "1,4,7,10"
+    job: cd /home/{{ ansible_ssh_user }}/datalab; docker compose exec api pipenv run invoke admin.create-backup --strategy-name quarterly-snapshots

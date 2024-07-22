@@ -21,6 +21,7 @@
 - name: Install Docker Module for Python
   ansible.builtin.pip:
     name: docker
+    break_system_packages: true
 
 - name: Add user '{{ ansible_ssh_user }}' to docker group
   become: true

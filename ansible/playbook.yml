@@ -3,18 +3,26 @@
   hosts: all
   roles:
     - role: setup
+      name: Run OS and disk set up tasks
       tags: [setup]
     - role: docker
+      name: Install and configure Docker
       tags: [setup]
     - role: fail2ban
+      name: Install and configure fail2ban
       tags: [setup]
+    - role: ssl_first_run
+      name: Run stripped down nginx and SSL for the first time
+      tags: [setup, ssl]
     - role: datalab
+      name: Build and launch datalab services
       tags: [deploy]
     - role: nginx
-      tags: [setup, maintenance]
+      name: Launch nginx container with autorenewing certbot
+      tags: [setup, maintenance, ssl]
 
   tasks:
     - name: Keep all packages up-to-date
       ansible.builtin.include_role:
         name: apt_upgrade
-      tags: [setup, maintenance]
+      tags: [maintenance]

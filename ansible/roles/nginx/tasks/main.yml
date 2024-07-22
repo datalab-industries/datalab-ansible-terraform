@@ -1,23 +1,9 @@
 ---
-- name: Create a Docker volume for certbot-conf (mounted to /etc/letsencrypt)
-  community.docker.docker_volume:
-    name: certbot-conf
-
-- name: Create a Docker volume for certbot-www (mounted to /var/www/certbot)
-  community.docker.docker_volume:
-    name: certbot-www
-
-- name: Build/pull certbot image
-  community.docker.docker_image:
-    name: certbot/certbot:latest
-    source: pull
-    state: present
-    force_source: true
-
 - name: Synchronize nginx files to remote
   ansible.posix.synchronize:
     src: "{{ role_path }}/files/"
     dest: /home/{{ ansible_ssh_user }}/nginx
+    delete: true
 
 - name: Make directory for rendered templates
   ansible.builtin.file:
@@ -35,12 +21,6 @@
   ansible.builtin.template:
     src: nginx_ssl.conf.j2
     dest: /home/{{ ansible_ssh_user }}/nginx/rendered/nginx_ssl.conf
-    mode: "0644"
-
-- name: Render templated certbot config
-  ansible.builtin.template:
-    src: certbot-docker.sh.j2
-    dest: /home/{{ ansible_ssh_user }}/nginx/rendered/certbot-docker.sh
     mode: "0644"
 
 - name: Build nginx image
@@ -61,27 +41,3 @@
       - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot
     restart_policy: always
-
-- name: Launch certbot container
-  community.docker.docker_container:
-    name: datalab-certbot
-    image: certbot/certbot:latest
-    network_mode: host
-    volumes:
-      - certbot-conf:/etc/letsencrypt
-      - certbot-www:/var/www/certbot
-    restart_policy: false
-    detach: true
-    entrypoint:
-      - /bin/sh
-      - -c
-      - certbot renew
-
-- name: Scheduled SSL renewal with certbot
-  ansible.builtin.cron:
-    name: SSL renewal with certbot
-    minute: "38"
-    hour: "10"
-    day: "2"
-    month: "*"
-    job: docker run -v certbot-www:/var/www/certbot -v certbot-conf:/etc/letsencrypt certbot/certbot:latest renew

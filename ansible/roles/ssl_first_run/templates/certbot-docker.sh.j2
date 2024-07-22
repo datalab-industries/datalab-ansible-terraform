@@ -1,0 +1,2 @@
+#!/bin/sh
+certbot certonly --webroot -w /var/www/certbot --register-unsafely-without-email --no-eff-email --agree-tos -d {{ app_url }} -d {{ api_url }}

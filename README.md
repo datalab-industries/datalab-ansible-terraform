@@ -98,6 +98,12 @@ ungrouped:
       ansible_user: <remote_username>
       api_url: <desired_datalab_api_url>
       app_url: <desired_datalab_app_url>
+      # Additional optional settings:
+      mount_data_disk: <disk device file location, e.g., /dev/sda, /dev/sdb or otherwise>
+      data_disk_type: <the fstype of the data disk, defaults to 'xfs'
+      borg_encryption_passphrase: <the passphrase for the borg encryption>
+      borg_remote_path: <the command to run borg on the repository (e.g., borg1 vs borg2)>
+      borg_repository: <the path to the borg repository, either local or remote>
 ```
 
 where `<hostname>` and the various setting should be configured with your chosen
@@ -112,17 +118,19 @@ These files contain the desired *datalab* settings:
 2. `./vaults/datalab/.env_server`: the secrets required by the server as an env
    file (e.g., keys to external integration with GitHub, ORCID).
 3. `./vaults/datalab/.env`: any variables required by the web app.
+4. `./vaults/datalab/.ssh` (OPTIONAL): any SSH keys and config required to be mounted into the server container. These files should each be individually encrypted.
 
 It is recommended that you version control these files **with encryption** and commit it to your
 fork.
 To encrypt them, you can run
 
 ```shell
-ansible-vault encrypt inventory.yml vaults/datalab/prod_config.json vaults/datalab/.env vaults/datalab/.env_server
+ansible-vault encrypt inventory.yml vaults/datalab/prod_config.json vaults/datalab/.env vaults/datalab/.env_server vaults/datalab/.ssh/*
 ```
 
 and provide a password when prompted (which will then need to be kept safe and
-used every time the Ansible playbook is run).
+used every time the Ansible playbook is run). Omit the final SSH wildcard if no
+SSH keyse are required.
 You should never commit these files directly without encryption.
 
 Once all these configuration steps have been performed, we can try to execute

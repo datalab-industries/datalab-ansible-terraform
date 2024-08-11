@@ -20,6 +20,9 @@
     - role: nginx
       name: Launch nginx container with autorenewing certbot
       tags: [setup, maintenance, ssl]
+    - role: borg
+      name: Configure borg(matic) and remote backups
+      tags: [borg, setup]
 
   tasks:
     - name: Keep all packages up-to-date

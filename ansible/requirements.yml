@@ -6,3 +6,8 @@ collections:
     version: 1.5.4
   - name: community.general
     version: 8.2.0
+  - name: community.crypto
+    version: 2.21.1
+roles:
+  - name: borgbase.ansible_role_borgbackup
+    version: 1.0.1

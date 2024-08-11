@@ -8,3 +8,6 @@ ungrouped:
       app_url: <desired_datalab_app_url>
       mount_data_disk: <disk device file location, e.g., /dev/sda, /dev/sdb or otherwise>
       data_disk_type: <the fstype of the data disk, defaults to 'xfs'
+      borg_encryption_passphrase: <the passphrase for the borg encryption>
+      borg_remote_path: <the command to run borg on the repository (e.g., borg1 vs borg2)>
+      borg_repository: <the path to the borg repository, either local or remote>

@@ -1,0 +1,73 @@
+---
+- name: Install borg
+  become: true
+  ansible.builtin.apt:
+    name:
+      - borgbackup
+    state: present
+
+- name: Install pipx
+  ansible.builtin.pip:
+    name: pipx
+    state: present
+
+- name: Install borgmatic with pipx
+  community.general.pipx:
+    name: borgmatic ~= 1.8, < 2
+    state: present
+
+- name: Install MongoDB tools
+  become: true
+  ansible.builtin.apt:
+    deb: https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.10.0.deb
+
+- name: Ensure /etc/borgmatic exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/borgmatic
+    state: directory
+    mode: "0700"
+    owner: "{{ ansible_ssh_user }}"
+
+- name: Add Borgmatic configuration
+  become: true
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/borgmatic/config.yaml
+    mode: "0600"
+    owner: "{{ ansible_ssh_user }}"
+
+  vars:
+    borg_exclude_patterns: []
+    borg_exclude_from: []
+    borg_install_method: package
+    borg_user: "{{ ansible_user }}"
+    borg_source_directories:
+      - /data
+    borgmatic_hooks:
+      before_backup:
+        - echo "`date` - Starting backup."
+      mongodb_databases:
+        - name: all
+          port: 27017
+    borgmatic_timer: cron
+    borg_retention_policy:
+      keep_daily: 30
+      keep_weekly: 0
+      keep_monthly: 12
+      keep_yearly: 4
+    borg_one_file_system: true
+    borgmatic_store_atime: true
+    borgmatic_store_ctime: true
+    borg_encryption_passcommand: false
+    borg_remote_rate_limit: 0
+    borg_ssh_command: ssh
+    borg_lock_wait_time: 5
+
+- name: Add Cron job for borgmatic
+  ansible.builtin.cron:
+    name: borgmatic
+    hour: "2"
+    minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
+    user: "{{ ansible_user }}"
+    job: /bin/bash -l -c 'source /home/{{ ansible_user }}/.profile && borgmatic -c /etc/borgmatic/config.yaml'

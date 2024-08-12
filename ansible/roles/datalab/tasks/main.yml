@@ -52,9 +52,15 @@
 - name: Sync local ssh config vault remote
   when: ssh_config_defined
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/vaults/datalab/.ssh"
+    src: "{{ playbook_dir }}/vaults/datalab/.ssh/"
     dest: /home/{{ ansible_ssh_user }}/.ssh
     mode: "0700"
+
+- name: List all SSH config files & keys
+  ansible.builtin.find:
+    paths: /home/{{ ansible_ssh_user }}/.ssh/
+    patterns: "*"
+  register: ssh_files_glob
 
 - name: Create .ssh folder in container
   when: ssh_config_defined
@@ -62,29 +68,13 @@
     container: datalab-api-1
     command: mkdir -p /root/.ssh
 
-- name: Copy SSH config into API container
-  when: ssh_config_defined
+- name: Copy SSH config and credentials into container
   community.docker.docker_container_copy_into:
     container: datalab-api-1
-    path: /home/{{ ansible_ssh_user }}/.ssh/config
-    container_path: /root/.ssh/config
+    path: "{{ item.path }}"
+    container_path: /root/.ssh/{{ item.path | basename }}
     mode: "0700"
-
-- name: Copy SSH public key into API container
-  when: ssh_config_defined
-  community.docker.docker_container_copy_into:
-    container: datalab-api-1
-    path: /home/{{ ansible_ssh_user }}/.ssh/id_ed25519.pub
-    container_path: /root/.ssh/id_ed25519.pub
-    mode: "0700"
-
-- name: Copy SSH private key into API container
-  when: ssh_config_defined
-  community.docker.docker_container_copy_into:
-    container: datalab-api-1
-    path: /home/{{ ansible_ssh_user }}/.ssh/id_ed25519
-    container_path: /root/.ssh/id_ed25519
-    mode: "0700"
+  loop: "{{ ssh_files_glob.files }}"
 
 - name: Build and launch app container
   community.docker.docker_compose_v2:

@@ -68,7 +68,7 @@
   ansible.builtin.shell:
     cmd: source /home/{{ ansible_user }}/.profile && borgmatic init --encryption=repokey
     executable: /bin/bash
-    register: result
+  register: result
   changed_when: '"Repository already exists" not in result.stdout'
   failed_when: result.rc != 0
 

@@ -64,6 +64,14 @@
     borg_ssh_command: ssh
     borg_lock_wait_time: 5
 
+- name: Create borg repository if it does not exists
+  ansible.builtin.shell:
+    cmd: source /home/{{ ansible_user }}/.profile && borgmatic init --encryption=repokey
+    executable: /bin/bash
+    register: result
+  changed_when: '"Repository already exists" not in result.stdout'
+  failed_when: result.rc != 0
+
 - name: Add Cron job for borgmatic
   ansible.builtin.cron:
     name: borgmatic

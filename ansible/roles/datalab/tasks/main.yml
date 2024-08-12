@@ -45,18 +45,19 @@
   register: ssh_config
   delegate_to: localhost
 
-- name: Check whether ssh config exists
+- name: Set fact for whether ssh config exists
   ansible.builtin.set_fact:
     ssh_config_defined: "{{ ssh_config.stat.exists }}"
 
 - name: Sync local ssh config vault remote
   when: ssh_config_defined
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/vaults/datalab/.ssh/"
+    src: "{{ playbook_dir }}/vaults/datalab/.ssh"
     dest: /home/{{ ansible_ssh_user }}/.ssh
     mode: "0700"
 
 - name: List all SSH config files & keys
+  when: ssh_config_defined
   ansible.builtin.find:
     paths: /home/{{ ansible_ssh_user }}/.ssh/
     patterns: "*"
@@ -69,6 +70,7 @@
     command: mkdir -p /root/.ssh
 
 - name: Copy SSH config and credentials into container
+  when: ssh_config_defined
   community.docker.docker_container_copy_into:
     container: datalab-api-1
     path: "{{ item.path }}"

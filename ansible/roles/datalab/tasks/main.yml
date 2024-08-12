@@ -45,7 +45,7 @@
   register: ssh_config
   delegate_to: localhost
 
-- name: Check whether ssh config exists
+- name: Set fact for whether ssh config exists
   ansible.builtin.set_fact:
     ssh_config_defined: "{{ ssh_config.stat.exists }}"
 
@@ -56,35 +56,27 @@
     dest: /home/{{ ansible_ssh_user }}/.ssh
     mode: "0700"
 
+- name: List all SSH config files & keys
+  when: ssh_config_defined
+  ansible.builtin.find:
+    paths: /home/{{ ansible_ssh_user }}/.ssh/
+    patterns: "*"
+  register: ssh_files_glob
+
 - name: Create .ssh folder in container
   when: ssh_config_defined
   community.docker.docker_container_exec:
     container: datalab-api-1
     command: mkdir -p /root/.ssh
 
-- name: Copy SSH config into API container
+- name: Copy SSH config and credentials into container
   when: ssh_config_defined
   community.docker.docker_container_copy_into:
     container: datalab-api-1
-    path: /home/{{ ansible_ssh_user }}/.ssh/config
-    container_path: /root/.ssh/config
+    path: "{{ item.path }}"
+    container_path: /root/.ssh/{{ item.path | basename }}
     mode: "0700"
-
-- name: Copy SSH public key into API container
-  when: ssh_config_defined
-  community.docker.docker_container_copy_into:
-    container: datalab-api-1
-    path: /home/{{ ansible_ssh_user }}/.ssh/id_ed25519.pub
-    container_path: /root/.ssh/id_ed25519.pub
-    mode: "0700"
-
-- name: Copy SSH private key into API container
-  when: ssh_config_defined
-  community.docker.docker_container_copy_into:
-    container: datalab-api-1
-    path: /home/{{ ansible_ssh_user }}/.ssh/id_ed25519
-    container_path: /root/.ssh/id_ed25519
-    mode: "0700"
+  loop: "{{ ssh_files_glob.files }}"
 
 - name: Build and launch app container
   community.docker.docker_compose_v2:

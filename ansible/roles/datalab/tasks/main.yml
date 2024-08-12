@@ -52,7 +52,7 @@
 - name: Sync local ssh config vault remote
   when: ssh_config_defined
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/vaults/datalab/.ssh"
+    src: "{{ playbook_dir }}/vaults/datalab/.ssh/"
     dest: /home/{{ ansible_ssh_user }}/.ssh
     mode: "0700"
 

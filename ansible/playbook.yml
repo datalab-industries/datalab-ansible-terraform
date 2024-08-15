@@ -1,6 +1,9 @@
 ---
 - name: Create and maintain a datalab
   hosts: all
+  vars:
+    # root behaves differently than other users; set home dir accordingly
+    ansible_user_home_dir: "{{ '/' + ansible_ssh_user if ansible_ssh_user == 'root' else '/home/' + ansible_ssh_user }}"
   roles:
     - role: setup
       name: Run OS and disk set up tasks

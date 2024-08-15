@@ -2,25 +2,25 @@
 - name: Synchronize nginx files to remote
   ansible.posix.synchronize:
     src: "{{ role_path }}/files/"
-    dest: /home/{{ ansible_ssh_user }}/nginx
+    dest: "{{ ansible_user_home_dir }}/nginx"
     delete: true
 
 - name: Make directory for rendered templates
   ansible.builtin.file:
-    path: /home/{{ ansible_ssh_user }}/nginx/rendered/include
+    path: "{{ ansible_user_home_dir }}/nginx/rendered/include"
     state: directory
     mode: "0755"
 
 - name: Render templated datalab config
   ansible.builtin.template:
     src: nginx_datalab.conf.j2
-    dest: /home/{{ ansible_ssh_user }}/nginx/rendered/include/nginx_datalab.conf
+    dest: "{{ ansible_user_home_dir }}/nginx/rendered/include/nginx_datalab.conf"
     mode: "0644"
 
 - name: Render templated SSL config
   ansible.builtin.template:
     src: nginx_ssl.conf.j2
-    dest: /home/{{ ansible_ssh_user }}/nginx/rendered/nginx_ssl.conf
+    dest: "{{ ansible_user_home_dir }}/nginx/rendered/nginx_ssl.conf"
     mode: "0644"
 
 - name: Build nginx image
@@ -30,7 +30,7 @@
     state: present
     force_source: true
     build:
-      path: /home/{{ ansible_ssh_user }}/nginx
+      path: "{{ ansible_user_home_dir }}/nginx"
 
 - name: Launch nginx container
   community.docker.docker_container:

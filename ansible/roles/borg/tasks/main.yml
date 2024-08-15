@@ -4,16 +4,21 @@
   ansible.builtin.apt:
     name:
       - borgbackup
+      - pipx
     state: present
 
-- name: Install pipx
-  ansible.builtin.pip:
-    name: pipx
-    state: present
+- name: Make sure pipx install dir is on PATH
+  ansible.builtin.shell:
+    cmd: pipx ensurepath
+    executable: /bin/bash
+  register: pipx_ensurepath
+  changed_when: '"Success!" in pipx_ensurepath.stdout'
+  failed_when: pipx_ensurepath.rc != 0
 
 - name: Install borgmatic with pipx
   community.general.pipx:
-    name: borgmatic ~= 1.8, < 2
+    name: borgmatic
+    source: borgmatic ~= 1.8, < 2
     state: present
 
 - name: Install MongoDB tools
@@ -64,13 +69,19 @@
     borg_ssh_command: ssh
     borg_lock_wait_time: 5
 
-- name: Create borg repository if it does not exists
+- name: Create borg repository if it does not exist
   ansible.builtin.shell:
-    cmd: source /home/{{ ansible_user }}/.profile && borgmatic init --encryption=repokey
+    cmd: source {{ ansible_user_home_dir }}/.profile && borgmatic init --encryption=repokey
     executable: /bin/bash
-  register: result
-  changed_when: '"Repository already exists" not in result.stdout'
-  failed_when: result.rc != 0
+  register: new_borg_repository
+  changed_when: '"Repository already exists" not in new_borg_repository.stdout'
+  failed_when: new_borg_repository.rc != 0
+
+- name: Perform first backup if borg repo was just created
+  ansible.builtin.shell:
+    cmd: source {{ ansible_user_home_dir }}/.profile && borgmatic -c /etc/borgmatic/config.yaml # noqa: no-changed-when
+    executable: /bin/bash
+  when: new_borg_repository.changed # noqa: no-handler
 
 - name: Add Cron job for borgmatic
   ansible.builtin.cron:
@@ -78,4 +89,4 @@
     hour: "2"
     minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
     user: "{{ ansible_user }}"
-    job: /bin/bash -l -c 'source /home/{{ ansible_user }}/.profile && borgmatic -c /etc/borgmatic/config.yaml'
+    job: /bin/bash -l -c 'source {{ ansible_user_home_dir }}/.profile && borgmatic -c /etc/borgmatic/config.yaml'

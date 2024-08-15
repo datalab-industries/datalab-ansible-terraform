@@ -17,12 +17,12 @@
 - name: Synchronize nginx files to remote
   ansible.posix.synchronize:
     src: "{{ role_path }}/files/"
-    dest: /home/{{ ansible_ssh_user }}/nginx
+    dest: "{{ ansible_user_home_dir }}/nginx"
 
 - name: Render templated certbot config
   ansible.builtin.template:
     src: certbot-docker.sh.j2
-    dest: /home/{{ ansible_ssh_user }}/nginx/rendered/certbot-docker.sh
+    dest: "{{ ansible_user_home_dir }}/nginx/rendered/certbot-docker.sh"
     mode: "0744"
 
 - name: Build nginx image
@@ -32,7 +32,7 @@
     state: present
     force_source: true
     build:
-      path: /home/{{ ansible_ssh_user }}/nginx
+      path: "{{ ansible_user_home_dir }}/nginx"
 
 - name: Launch nginx container without services
   community.docker.docker_container:
@@ -52,7 +52,7 @@
     volumes:
       - certbot-conf:/etc/letsencrypt
       - certbot-www:/var/www/certbot
-      - /home/{{ ansible_ssh_user }}/nginx/rendered/certbot-docker.sh:/opt/certbot-docker.sh
+      - "{{ ansible_user_home_dir }}/nginx/rendered/certbot-docker.sh:/opt/certbot-docker.sh"
     restart_policy: false
     detach: true
     entrypoint:

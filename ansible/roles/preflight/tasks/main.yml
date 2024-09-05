@@ -1,0 +1,5 @@
+---
+- name: Check OS is compatible
+  ansible.builtin.fail:
+    msg: This role is only compatible with Ubuntu 22.04/24.04
+  when: ansible_distribution != 'Ubuntu' or ansible_distribution_version != '22.04' and ansible_distribution_version != '24.04'

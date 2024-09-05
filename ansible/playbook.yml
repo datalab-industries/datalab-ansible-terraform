@@ -5,6 +5,9 @@
     # root behaves differently than other users; set home dir accordingly
     ansible_user_home_dir: "{{ '/' + ansible_ssh_user if ansible_ssh_user == 'root' else '/home/' + ansible_ssh_user }}"
   roles:
+    - role: preflight
+      name: Check if the system is ready for the playbook
+      tags: [setup]
     - role: setup
       name: Run OS and disk set up tasks
       tags: [setup]

@@ -19,6 +19,12 @@
     src: "{{ role_path }}/files/"
     dest: "{{ ansible_user_home_dir }}/nginx"
 
+- name: Make directory for rendered configs
+  ansible.builtin.file:
+    state: directory
+    path: "{{ ansible_user_home_dir }}/nginx/rendered"
+    mode: "0744"
+
 - name: Render templated certbot config
   ansible.builtin.template:
     src: certbot-docker.sh.j2

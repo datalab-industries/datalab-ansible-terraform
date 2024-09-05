@@ -64,6 +64,8 @@ repository state (i.e., no uncommited changes) to ensure reproducibility.
 
 ### Ansible automation
 
+#### First-time setup
+
 These instructions assume you have prepared the server on which you would like
 to deploy *datalab*, and that it is:
 
@@ -150,6 +152,35 @@ If completed successfully, the server should now be running a *datalab*
 instance at your configured URL!
 
 If you are using your own domain, you will need to update your DNS settings so that your domain name points to the IP of the server as given in your inventory file.
+
+#### Keeping things up to date
+
+To update the *datalab* version, you simply update the git submodule in
+`src/datalab`. This can be pinned to your fork and accomodate any custom changes
+you desire (though you may also need to test and maintain your own set of
+ansible rules and configuration for this).
+
+Once you have chosen the *datalab* version, it can be redployed with `make
+deploy` or
+
+```shell
+ansible-playbook --ask-vault-pass -i inventory.yml playbook.yml --tags deploy
+```
+
+To update the ansible playbooks themselves with any changes from the upstream
+repository, you can similarly maintain the submodule in
+`src/datalab-ansible-terraform` and either manually sync changes across, or use
+the helper script:
+
+```shell
+./sync-ansible-upstream.sh
+```
+
+which will copy just the changed playbooks across, and commit them. You should
+be careful to review these changes before committing them to your fork,
+especially if you have made any custom changes to the playbooks.
+Be sure to also commit the changes to your submodule so you know precisely which versions
+of the playbooks are running.
 
 ### Cloud provisioning
 

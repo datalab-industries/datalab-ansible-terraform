@@ -23,8 +23,9 @@ Attempts will be made to tabulate the supported versions of datalab with each re
 
 | This repository version | *datalab* version |
 |---|---|
-| v0.1.x | v0.4.x |
-
+| v0.1.x | v0.4.x  |
+| v0.2.x | v0.4.x  |
+| v0.3.x | v0.5.x+ |
 
 
 ## Overview
@@ -119,18 +120,19 @@ These files contain the desired *datalab* settings:
    file (e.g., keys to external integration with GitHub, ORCID).
 3. `./vaults/datalab/.env`: any variables required by the web app.
 4. `./vaults/datalab/.ssh` (OPTIONAL): any SSH keys and config required to be mounted into the server container. These files should each be individually encrypted.
+5. `./vaults/borg/.ssh` (OPTIONAL): any SSH keys or known hosts required to configure the borg backup system. These files should be individually encrypted.
 
 It is recommended that you version control these files **with encryption** and commit it to your
 fork.
 To encrypt them, you can run
 
 ```shell
-ansible-vault encrypt inventory.yml vaults/datalab/prod_config.json vaults/datalab/.env vaults/datalab/.env_server vaults/datalab/.ssh/*
+ansible-vault encrypt inventory.yml vaults/datalab/prod_config.json vaults/datalab/.env vaults/datalab/.env_server vaults/datalab/.ssh/* vaults/borg/.ssh/*
 ```
 
 and provide a password when prompted (which will then need to be kept safe and
-used every time the Ansible playbook is run). Omit the final SSH wildcard if no
-SSH keyse are required.
+used every time the Ansible playbook is run). Omit the optional SSH wildcards if no
+SSH keys are required.
 You should never commit these files directly without encryption.
 
 Once all these configuration steps have been performed, we can try to execute

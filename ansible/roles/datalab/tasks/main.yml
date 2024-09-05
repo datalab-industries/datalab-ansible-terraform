@@ -100,7 +100,7 @@
     name: Weekly snapshots
     minute: "5"
     hour: "5"
-    day: "7"
+    weekday: "7"
     month: "*"
     job: cd {{ ansible_user_home_dir }}/datalab; docker compose exec api /opt/.venv/bin/python -m invoke admin.create-backup --strategy-name weekly-snapshots
 

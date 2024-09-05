@@ -93,7 +93,7 @@
     hour: "4"
     day: "*"
     month: "*"
-    job: cd {{ ansible_user_home_dir }}/datalab; docker compose exec api pipenv run invoke admin.create-backup --strategy-name daily-snapshots
+    job: cd {{ ansible_user_home_dir }}/datalab; docker compose exec api /opt/.venv/bin/python -m invoke admin.create-backup --strategy-name daily-snapshots
 
 - name: Add weekly backup task to crontab
   ansible.builtin.cron:
@@ -102,7 +102,7 @@
     hour: "5"
     day: "7"
     month: "*"
-    job: cd {{ ansible_user_home_dir }}/datalab; docker compose exec api pipenv run invoke admin.create-backup --strategy-name weekly-snapshots
+    job: cd {{ ansible_user_home_dir }}/datalab; docker compose exec api /opt/.venv/bin/python -m invoke admin.create-backup --strategy-name weekly-snapshots
 
 - name: Add quarterly backup task to crontab
   ansible.builtin.cron:
@@ -111,4 +111,4 @@
     hour: "2"
     day: "1"
     month: 1,4,7,10
-    job: cd {{ ansible_user_home_dir }}/datalab; docker compose exec api pipenv run invoke admin.create-backup --strategy-name quarterly-snapshots
+    job: cd {{ ansible_user_home_dir }}/datalab; docker compose exec api /opt/.venv/bin/python -m invoke admin.create-backup --strategy-name quarterly-snapshots

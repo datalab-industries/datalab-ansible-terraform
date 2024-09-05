@@ -22,13 +22,13 @@
       tags: [setup, ssl]
     - role: datalab
       name: Build and launch datalab services
-      tags: [deploy]
+      tags: [setup, deploy]
     - role: nginx
       name: Launch nginx container with autorenewing certbot
       tags: [setup, maintenance, ssl]
     - role: borg
       name: Configure borg(matic) and remote backups
-      tags: [borg, setup]
+      tags: [borg]
 
   tasks:
     - name: Keep all packages up-to-date

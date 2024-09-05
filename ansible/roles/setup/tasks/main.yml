@@ -15,8 +15,19 @@
     state: present
     update_cache: true
 
-- name: Install required system packages
+- name: Install required system packages (24.04)
   become: true
+  when: ansible_distribution_version == '24.04'
+  ansible.builtin.apt:
+    pkg:
+      - ca-certificates
+      - python3-pip
+    state: present
+    update_cache: true
+
+- name: Install required system packages (22.04)
+  become: true
+  when: ansible_distribution_version == '22.04'
   ansible.builtin.apt:
     pkg:
       - ca-certificates

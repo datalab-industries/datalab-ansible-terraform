@@ -99,7 +99,7 @@ ungrouped:
       api_url: <desired_datalab_api_url>
       app_url: <desired_datalab_app_url>
       # Additional optional settings:
-      mount_data_disk: <disk device file location, e.g., /dev/sda, /dev/sdb or otherwise>
+      mount_data_disk: <disk device file location, e.g., /dev/sda, /dev/sdb or otherwise or a full fstab configuration, e.g., `UUID=aaaa-bbbb-ccc>
       data_disk_type: <the fstype of the data disk, defaults to 'xfs'
       borg_encryption_passphrase: <the passphrase for the borg encryption>
       borg_remote_path: <the command to run borg on the repository (e.g., borg1 vs borg2)>

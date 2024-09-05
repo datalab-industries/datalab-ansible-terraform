@@ -1,3 +1,6 @@
 [submodule "src/datalab"]
 	path = src/datalab
 	url = git@github.com:the-grey-group/datalab
+[submodule "src/datalab-ansible-terraform"]
+	path = src/datalab-ansible-terraform
+	url = git@github.com:datalab-industries/datalab-ansible-terraform

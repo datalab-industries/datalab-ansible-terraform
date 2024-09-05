@@ -1,4 +1,17 @@
 ---
+- name: Get local version from git tags # noqa: no-changed-when
+  ansible.builtin.command: # noqa: command-instead-of-module
+    cmd: git describe --tags --abbrev=0
+    chdir: "{{ playbook_dir }}/../src/datalab"
+  delegate_to: localhost
+  register: datalab_git_version
+
+- name: Write version to an extra .env file
+  ansible.builtin.copy:
+    content: DATALAB_GIT_VERSION={{ datalab_git_version.stdout }}
+    dest: "{{ playbook_dir }}/../src/datalab/.version"
+    mode: "0644"
+
 - name: Sync local datalab submodule with remote
   ansible.posix.synchronize:
     src: "{{ playbook_dir }}/../src/datalab"
@@ -38,6 +51,7 @@
     build: always
     env_files:
       - "{{ ansible_user_home_dir }}/datalab/pydatalab/.env"
+      - "{{ ansible_user_home_dir }}/datalab/.version"
 
 - name: Check whether ssh config exists
   ansible.builtin.stat:

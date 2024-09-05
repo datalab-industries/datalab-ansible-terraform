@@ -1,44 +1,31 @@
 ---
-- name: Install borg
-  become: true
-  ansible.builtin.apt:
-    name:
-      - borgbackup
-      - pipx
-    state: present
+- name: Synchronize borgmatic files to remote
+  ansible.posix.synchronize:
+    src: "{{ role_path }}/files/"
+    dest: "{{ ansible_user_home_dir }}/borgmatic"
 
-- name: Make sure pipx install dir is on PATH
-  ansible.builtin.shell:
-    cmd: pipx ensurepath
-    executable: /bin/bash
-  register: pipx_ensurepath
-  changed_when: '"Success!" in pipx_ensurepath.stdout'
-  failed_when: pipx_ensurepath.rc != 0
+- name: Check whether ssh config exists
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/vaults/borg/.ssh/id_ed25519"
+  register: ssh_config
+  delegate_to: localhost
 
-- name: Install borgmatic with pipx
-  community.general.pipx:
-    name: borgmatic
-    source: borgmatic ~= 1.8, < 2
-    state: present
+- name: Set fact for whether borg ssh config exists
+  ansible.builtin.set_fact:
+    ssh_config_defined: "{{ ssh_config.stat.exists }}"
 
-- name: Install MongoDB tools
-  become: true
-  ansible.builtin.apt:
-    deb: https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.10.0.deb
-
-- name: Ensure /etc/borgmatic exists
-  become: true
-  ansible.builtin.file:
-    path: /etc/borgmatic
-    state: directory
+- name: Sync local ssh config vault remote
+  when: ssh_config_defined
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/vaults/borg/.ssh/"
+    dest: "{{ ansible_user_home_dir }}/borgmatic/.ssh"
     mode: "0700"
-    owner: "{{ ansible_ssh_user }}"
 
-- name: Add Borgmatic configuration
+- name: Render Borgmatic configuration
   become: true
   ansible.builtin.template:
     src: config.yaml.j2
-    dest: /etc/borgmatic/config.yaml
+    dest: "{{ ansible_user_home_dir }}/borgmatic/config.yaml"
     mode: "0600"
     owner: "{{ ansible_ssh_user }}"
 
@@ -54,6 +41,7 @@
         - echo "`date` - Starting backup."
       mongodb_databases:
         - name: all
+          hostname: datalab-database-1
           port: 27017
     borgmatic_timer: cron
     borg_retention_policy:
@@ -69,9 +57,19 @@
     borg_ssh_command: ssh
     borg_lock_wait_time: 5
 
+- name: Build borgmatic image
+  community.docker.docker_image:
+    name: datalab-borgmatic
+    source: build
+    state: present
+    force_source: true
+    build:
+      path: "{{ ansible_user_home_dir }}/borgmatic"
+
 - name: Create borg repository if it does not exist
   ansible.builtin.shell:
-    cmd: source {{ ansible_user_home_dir }}/.profile && borgmatic init --encryption=repokey
+    cmd: docker run --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic borgmatic init --encryption=repokey
+      -c /etc/borgmatic/config.yaml
     executable: /bin/bash
   register: new_borg_repository
   changed_when: '"Repository already exists" not in new_borg_repository.stdout'
@@ -79,7 +77,7 @@
 
 - name: Perform first backup if borg repo was just created
   ansible.builtin.shell:
-    cmd: source {{ ansible_user_home_dir }}/.profile && borgmatic -c /etc/borgmatic/config.yaml # noqa: no-changed-when
+    cmd: docker run --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic # noqa: no-changed-when
     executable: /bin/bash
   when: new_borg_repository.changed # noqa: no-handler
 
@@ -89,4 +87,4 @@
     hour: "2"
     minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
     user: "{{ ansible_user }}"
-    job: /bin/bash -l -c 'source {{ ansible_user_home_dir }}/.profile && borgmatic -c /etc/borgmatic/config.yaml'
+    job: docker run --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic

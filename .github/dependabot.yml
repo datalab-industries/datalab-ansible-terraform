@@ -1,0 +1,9 @@
+version: 2
+updates:
+- package-ecosystem: docker
+  schedule:
+    interval: daily
+    time: "05:43"
+  target-branch: main
+  labels:
+  - dependency_updates

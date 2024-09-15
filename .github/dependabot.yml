@@ -1,6 +1,7 @@
 version: 2
 updates:
 - package-ecosystem: docker
+  directory: "./ansible"
   schedule:
     interval: "daily"
     time: "05:31"

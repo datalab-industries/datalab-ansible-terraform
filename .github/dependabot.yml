@@ -1,7 +1,7 @@
 version: 2
 updates:
 - package-ecosystem: docker
-  directory: "./ansible"
+  directory: "./ansible/roles/nginx/files"
   schedule:
     interval: "daily"
     time: "05:31"

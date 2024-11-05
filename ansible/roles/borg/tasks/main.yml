@@ -16,10 +16,13 @@
 
 - name: Sync local ssh config vault remote
   when: ssh_config_defined
+  become: true
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/vaults/borg/.ssh/"
     dest: "{{ ansible_user_home_dir }}/borgmatic/.ssh"
     mode: "0700"
+    owner: root
+    group: root
 
 - name: Render Borgmatic configuration
   become: true
@@ -58,6 +61,7 @@
     borg_lock_wait_time: 5
 
 - name: Build borgmatic image
+  become: true
   community.docker.docker_image:
     name: datalab-borgmatic
     source: build

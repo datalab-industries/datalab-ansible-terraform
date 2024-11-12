@@ -44,7 +44,7 @@
 
 - name: Write git version to a .env file to be loaded by build
   ansible.builtin.copy:
-    content: "SETUPTOOLS_SCM_PRETEND_VERSION={{ git_tag }}"
+    content: "SETUPTOOLS_SCM_PRETEND_VERSION={{ git_tag }}\nVUE_APP_GIT_VERSION={{ git_tag }}"
     dest: "{{ ansible_user_home_dir }}/datalab/pydatalab/.env_version"
     mode: "0644"
 
@@ -74,7 +74,7 @@
     build: always
     env_files:
       - "{{ ansible_user_home_dir }}/datalab/pydatalab/.env"
-      - "{{ ansible_user_home_dir }}/datalab/pydatalab/.env_version"
+      - "{{ ansible_user_home_dir }}/datalab/.env_version"
 
 - name: Check whether ssh config exists
   ansible.builtin.stat:
@@ -122,6 +122,7 @@
     build: always
     env_files:
       - "{{ ansible_user_home_dir }}/datalab/webapp/.env"
+      - "{{ ansible_user_home_dir }}/datalab/.env_version"
 
 - name: Add daily backup task to crontab
   ansible.builtin.cron:

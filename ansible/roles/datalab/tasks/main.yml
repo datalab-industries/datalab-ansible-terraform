@@ -45,7 +45,7 @@
 - name: Write git version to a .env file to be loaded by build
   ansible.builtin.copy:
     content: "SETUPTOOLS_SCM_PRETEND_VERSION={{ git_tag }}\nVUE_APP_GIT_VERSION={{ git_tag }}"
-    dest: "{{ ansible_user_home_dir }}/datalab/pydatalab/.env_version"
+    dest: "{{ ansible_user_home_dir }}/datalab/env_version"
     mode: "0644"
 
 - name: Copy encrypted API config file from vault

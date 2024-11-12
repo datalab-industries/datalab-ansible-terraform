@@ -174,7 +174,7 @@ repository, you can similarly maintain the submodule in
 the helper script:
 
 ```shell
-./sync-ansible-upstream.sh
+chmod u+x sync-ansible-upstream.sh && ./sync-ansible-upstream.sh
 ```
 
 which will copy just the changed playbooks across, and commit them. You should

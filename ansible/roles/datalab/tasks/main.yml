@@ -12,6 +12,24 @@
     dest: "{{ ansible_user_home_dir }}/datalab/pydatalab/.env"
     mode: "0644"
 
+- name: Get git tag version locally to use as fact # noqa: command-instead-of-module
+  delegate_to: localhost
+  ansible.builtin.shell:
+    cmd: set -o pipefail && git describe --tags --match 'v*' | sed 's/^v//' | sed 's/-rc/rc/' | sed 's/-/+/'
+    chdir: "{{ playbook_dir }}/../src/datalab"
+  register: git_tag
+  changed_when: false
+
+- name: Set fact for git tag version
+  ansible.builtin.set_fact:
+    git_tag: "{{ git_tag.stdout }}"
+
+- name: Write git version to a .env file to be loaded by build
+  ansible.builtin.copy:
+    content: "SETUPTOOLS_SCM_PRETEND_VERSION={{ git_tag }}\nVUE_APP_GIT_VERSION={{ git_tag }}"
+    dest: "{{ ansible_user_home_dir }}/datalab/.env_version"
+    mode: "0644"
+
 - name: Copy encrypted API config file from vault
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/vaults/datalab/prod_config.json"
@@ -38,6 +56,7 @@
     build: always
     env_files:
       - "{{ ansible_user_home_dir }}/datalab/pydatalab/.env"
+      - "{{ ansible_user_home_dir }}/datalab/.env_version"
 
 - name: Check whether ssh config exists
   ansible.builtin.stat:
@@ -85,6 +104,7 @@
     build: always
     env_files:
       - "{{ ansible_user_home_dir }}/datalab/webapp/.env"
+      - "{{ ansible_user_home_dir }}/datalab/.env_version"
 
 - name: Add daily backup task to crontab
   ansible.builtin.cron:

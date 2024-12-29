@@ -28,6 +28,9 @@ Attempts will be made to tabulate the supported versions of datalab with each re
 | v0.3.x | v0.5.0-rc.x |
 | v0.4.x | v0.5.x |
 
+## Changelog
+
+The changelog for this repository can be found in the [release notes](https://github.com/datalab-industries/datalab-ansible-terraform/releases) on GitHub.
 
 ## Overview
 

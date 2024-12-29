@@ -69,6 +69,6 @@
     name: SSL renewal with certbot
     minute: "38"
     hour: "10"
-    day: "2"
+    weekday: "2"
     month: "*"
     job: docker run -v certbot-www:/var/www/certbot -v certbot-conf:/etc/letsencrypt certbot/certbot:latest renew

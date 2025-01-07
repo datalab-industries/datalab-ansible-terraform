@@ -1,4 +1,5 @@
 ---
+# See meta/argument_specs.yml for more information
 ungrouped:
   hosts:
     <hostname>:

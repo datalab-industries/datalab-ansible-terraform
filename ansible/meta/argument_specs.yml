@@ -1,0 +1,56 @@
+---
+# meta/argument_specs.yml
+argument_specs:
+  main:
+    short_description: Configure a DataLab instance with optional borg backup capabilities.
+    options:
+      ansible_become_method:
+        type: str
+        required: true
+        default: sudo
+        description: Method to use for privilege escalation (e.g., sudo)
+
+      ansible_user:
+        type: str
+        required: true
+        no_log: true
+        description: Remote username used for SSH access to the host
+
+      api_url:
+        type: str
+        required: true
+        description: The URL where the datalab API will be accessible. This should be a separate subdomain from the web application.
+
+      app_url:
+        type: str
+        required: true
+        description: The URL where the datalab API will be accessible. This should be a separate subdomain from the API.
+
+      mount_data_disk:
+        type: str
+        required: false
+        description: Device file location for data disk mounting (e.g., /dev/sda, /dev/sdb). Leave unset if no additional disk mounting is needed. Can use full fstab
+          syntax to pin a UUID in case of non-deterministic device names.
+
+      data_disk_type:
+        type: str
+        required: false
+        default: xfs
+        description: Filesystem type to use for the data disk. Only relevant if mount_data_disk is set
+
+      borg_encryption_passphrase:
+        type: str
+        required: false
+        no_log: true
+        description: Passphrase used for encrypting Borg backups. Required if using Borg backup functionality
+
+      borg_remote_path:
+        type: str
+        required: false
+        description: Command to run Borg on the repository (e.g., borg1, borg2). Required if using Borg backup functionality
+
+      borg_repository:
+        type: str
+        required: false
+        no_log: true
+        description: Path to the Borg repository (local or remote). Required if using Borg backup functionality

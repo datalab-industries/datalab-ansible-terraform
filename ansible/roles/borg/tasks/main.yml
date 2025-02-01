@@ -72,7 +72,7 @@
 
 - name: Create borg repository if it does not exist
   ansible.builtin.shell:
-    cmd: docker run --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic borgmatic init --encryption=repokey
+    cmd: docker run --rm --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic borgmatic init --encryption=repokey
       -c /etc/borgmatic/config.yaml
     executable: /bin/bash
   register: new_borg_repository
@@ -81,7 +81,7 @@
 
 - name: Perform first backup if borg repo was just created
   ansible.builtin.shell:
-    cmd: docker run --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic # noqa: no-changed-when
+    cmd: docker run --rm --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic # noqa: no-changed-when
     executable: /bin/bash
   when: new_borg_repository.changed # noqa: no-handler
 
@@ -91,4 +91,4 @@
     hour: "2"
     minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
     user: "{{ ansible_user }}"
-    job: docker run --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic
+    job: docker run --rm --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic

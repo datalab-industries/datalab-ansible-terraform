@@ -20,9 +20,6 @@ server {
   # set the correct host(s) for your site
   server_name {{ app_url }};
 
-  # Allow app to iframe files from API
-  add_header X-Frame-Options "ALLOW-FROM {{ app_url }}";
-
   location /503.html {
     root /app/static;
   }
@@ -61,6 +58,9 @@ server {
 
   # set the correct host(s) for your site
   server_name {{ api_url }};
+
+  # Allow app to iframe files from API
+  add_header X-Frame-Options "ALLOW-FROM {{ app_url }}";
 
   location /503.html {
     root /app/static;

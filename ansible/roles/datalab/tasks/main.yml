@@ -12,11 +12,12 @@
     dest: "{{ ansible_user_home_dir }}/datalab/pydatalab/.env"
     mode: "0644"
 
-- name: Get git tag version locally to use as fact # noqa: command-instead-of-module
+- name: Get git tag version locally to use as fact
   delegate_to: localhost
   ansible.builtin.shell:
     cmd: set -o pipefail && git describe --tags --match 'v*' | sed 's/^v//' | sed 's/-rc/rc/' | sed 's/-/+/'
     chdir: "{{ playbook_dir }}/../src/datalab"
+    executable: /bin/bash
   register: git_tag
   changed_when: false
 

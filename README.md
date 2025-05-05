@@ -168,7 +168,7 @@ If you are using your own domain, you will need to update your DNS settings so t
 #### Keeping things up to date
 
 To update the *datalab* version, you simply update the git submodule in
-`src/datalab`. This can be pinned to your fork and accomodate any custom changes
+`src/datalab` and rerun the playbook. This can be pinned to your fork and accomodate any custom changes
 you desire (though you may also need to test and maintain your own set of
 ansible rules and configuration for this).
 
@@ -193,6 +193,44 @@ be careful to review these changes before committing them to your fork,
 especially if you have made any custom changes to the playbooks.
 Be sure to also commit the changes to your submodule so you know precisely which versions
 of the playbooks are running.
+
+#### Backups
+
+##### Native backups
+
+By default, *datalab* will take native snapshot backups at a certain frequency
+and save them into `/data/backups` on the server with the configured retention
+rules (typically keeping 7 daily copies, 6 monthly and 4 yearly).
+These backups can be synced with a remote system to avoid data loss in the event
+of a hardware failure on your *datalab* server.
+
+More information on backups can be found in the
+[datalab documentation](https://docs.datalab-org.io/en/stable/deployment/#backups).
+
+##### Borg backups (recommended)
+
+This repository contains playbooks for automating much more robust backups
+using [Borg](https://www.borgbackup.org/en/stable/) and
+[borgmatic](https://torsion.org/borgmatic/).
+
+These backups are encrypted, de-duplicated and compressed, requiring significantly
+less space than the native backup option, and can be synced easily with remote
+Borg instances over SSH.
+You will need to have an appropriate remote server (ideally separate from the *datalab* server itself)
+running Borg (we recommend [rsync.net](https://www.rsync.net/products/borg.html) which has excellent borg support).
+
+To activate the Borg playbooks, you must first provide an encrypted SSH key pair for accessing
+your remote Borg server in the `./vaults/borg/.ssh` directory.
+It should be named `./vaults/borg/.ssh/id_ed25519` and contain the private key for
+passwordless SSH connection to the remote Borg server configured in the
+inventory.
+Any other encrypted files in this `.ssh` vault will be mounted in the Borg
+container during the backup procedure. You may wish to include an `.ssh/config`
+to set up any extra settings (e.g., proxies, host checking), or an `.ssh/known_hosts` to enable strict host checking.
+
+> If you are running a *datalab* instance yourself and are looking for a place
+> for your encrypted Borg backups, feel free to reach out to us as we may have
+> enough of an overhead to be a secondary backup host for you.
 
 ### Cloud provisioning
 

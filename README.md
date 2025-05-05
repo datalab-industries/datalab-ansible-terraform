@@ -80,11 +80,17 @@ It also assumes you have set up Ansible on your local machine, and it is
 expected that this machine is at least a Unix-like OS with `git` and `bash`
 and `sed` available.
 You can find instructions for this in the [Ansible documentation](https://docs.ansible.com/ansible/latest/getting_started/get_started_ansible.html).
+You can also simply install ansible from the `requirements.txt` file with `pip`
+after cloning:
 
-The first step is to clone this repository (or your fork) with submodules:
+The first step is to clone this repository (or your fork) with submodules and
+then install Ansible (if not done already):
 
 ```shell
 git clone --recurse-submodules git@github.com:datalab-org/datalab-ansible-terraform
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 You can then navigate to the to the `./ansible` directory to begin configuring

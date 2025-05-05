@@ -6,6 +6,13 @@
     recursive: true
     delete: false
 
+- name: Sync any plugins into datalab folder on remote
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../src/plugins"
+    dest: /home/{{ ansible_ssh_user }}/datalab/pydatalab
+    recursive: true
+    delete: false
+
 - name: Copy encrypted API env file from vault
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/vaults/datalab/.env_server"

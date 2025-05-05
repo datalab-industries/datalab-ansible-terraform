@@ -33,7 +33,8 @@
     owner: "{{ ansible_ssh_user }}"
 
   vars:
-    borg_exclude_patterns: []
+    borg_exclude_patterns:
+      - /data/backups
     borg_exclude_from: []
     borg_install_method: package
     borg_user: "{{ ansible_user }}"

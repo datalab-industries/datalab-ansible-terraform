@@ -76,7 +76,9 @@ to deploy *datalab*, and that it is:
 - accessible via SSH (using your local SSH config),
 - running Ubuntu 22.04 or a similar distro with `apt` available.
 
-It also assumes you have set up Ansible on your local machine.
+It also assumes you have set up Ansible on your local machine, and it is
+expected that this machine is at least a Unix-like OS with `git` and `bash`
+and `sed` available.
 You can find instructions for this in the [Ansible documentation](https://docs.ansible.com/ansible/latest/getting_started/get_started_ansible.html).
 
 The first step is to clone this repository (or your fork) with submodules:

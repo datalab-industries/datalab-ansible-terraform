@@ -27,6 +27,7 @@ Attempts will be made to tabulate the supported versions of datalab with each re
 | v0.2.x | v0.4.x  |
 | v0.3.x | v0.5.0-rc.x |
 | v0.4.x | v0.5.x |
+| v0.5.x | v0.6.x |
 
 ## Changelog
 

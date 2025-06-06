@@ -9,7 +9,7 @@
 - name: Sync any plugins into datalab folder on remote
   ansible.posix.synchronize:
     src: "{{ playbook_dir }}/../src/plugins"
-    dest: /home/{{ ansible_ssh_user }}/datalab/pydatalab
+    dest: "{{ ansible_user_home_dir }}/datalab/pydatalab"
     recursive: true
     delete: false
 

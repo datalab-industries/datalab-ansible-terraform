@@ -73,9 +73,12 @@
 
 - name: Create borg repository if it does not exist
   ansible.builtin.shell:
-    cmd: |
-      docker run --rm --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic
-      borgmatic init --encryption=repokey -c /etc/borgmatic/config.yaml
+    cmd: >
+      docker run --rm
+        --network datalab_backend
+        -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh
+        -v /data:/data datalab-borgmatic
+        borgmatic init --encryption=repokey -c /etc/borgmatic/config.yaml
     executable: /bin/bash
   register: new_borg_repository
   changed_when: '"Repository already exists" not in new_borg_repository.stdout'
@@ -93,4 +96,8 @@
     hour: "2"
     minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
     user: "{{ ansible_user }}"
-    job: docker run --rm --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic
+    job: >
+      docker run --rm
+        --network datalab_backend
+        -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh
+        -v /data:/data datalab-borgmatic

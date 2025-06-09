@@ -71,4 +71,6 @@
     hour: "10"
     weekday: "2"
     month: "*"
-    job: docker run --rm -v certbot-www:/var/www/certbot -v certbot-conf:/etc/letsencrypt certbot/certbot:latest renew && docker exec datalab-nginx nginx -s reload
+    job: |
+      docker run --rm -v certbot-www:/var/www/certbot -v certbot-conf:/etc/letsencrypt certbot/certbot:latest renew
+      && docker exec datalab-nginx nginx -s reload

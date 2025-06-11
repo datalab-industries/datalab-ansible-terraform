@@ -12,6 +12,7 @@
     dest: "{{ ansible_user_home_dir }}/datalab/pydatalab"
     recursive: true
     delete: false
+  failed_when: false
 
 - name: Copy encrypted API env file from vault
   ansible.builtin.copy:

@@ -19,4 +19,3 @@ repos:
       - id: ansible-lint
         additional_dependencies:
           - ansible
-        args: [--fix, ]

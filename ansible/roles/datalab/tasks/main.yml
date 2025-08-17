@@ -12,7 +12,7 @@
   register: plugins_dir
 
 - name: Sync any plugins into datalab folder on remote
-  when: plugins_dir.stat.isdir
+  when: plugins_dir.stat.isdir is defined and plugins_dir.stat.isdir
   ansible.posix.synchronize:
     src: "{{ playbook_dir }}/../src/plugins"
     dest: "{{ ansible_user_home_dir }}/datalab/pydatalab"

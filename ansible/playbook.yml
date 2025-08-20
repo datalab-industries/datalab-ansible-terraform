@@ -34,4 +34,6 @@
     - name: Keep all packages up-to-date
       ansible.builtin.include_role:
         name: apt_upgrade
+        apply:
+          tags: [maintenance]
       tags: [maintenance]

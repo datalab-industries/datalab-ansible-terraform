@@ -12,7 +12,7 @@
 This repository contains tools and rules for automatically deploying datalab instances using Terraform/OpenTofu and Ansible.
 It can be used as a template for deploying your own datalab instance, and optionally periodically resynced on new releases.
 
-Use of Terraform for cloud provisioning is OPTIONAL; the Ansible playbooks are sufficient to set up a datalab instance on a existing hardware.
+Use of Terraform/OpenTofu for cloud provisioning is OPTIONAL; the Ansible playbooks are sufficient to set up a datalab instance on a existing hardware.
 The Ansible playbooks can even be used to deploy datalab on shared hardware; all mandatory services will be deployed within containers, so it is possible to set up the full NGINX + datalab stack alongside an existing reverse proxy managing other services, although this will need to be configured by the user.
 
 Ideally, various aspects of the configuration will be transferrable, and thus only instance-specific configuration will need to be provided (e.g., usernames, domain names), in which case your instance version of this repository can be kept fairly in-sync with the main branch (which will continue to be updated as datalab's requirements grow and change).
@@ -21,6 +21,8 @@ Attempts will be made to tabulate the supported versions of datalab with each re
 
 ## Supported versions
 
+<div align="center">
+
 | This repository version | *datalab* version |
 |---|---|
 | v0.1.x | v0.4.x  |
@@ -28,6 +30,9 @@ Attempts will be made to tabulate the supported versions of datalab with each re
 | v0.3.x | v0.5.0-rc.x |
 | v0.4.x | v0.5.x |
 | v0.5.x | v0.6.x |
+| v0.6.x | v0.6.x |
+
+</div>
 
 ## Changelog
 
@@ -58,7 +63,7 @@ Stack:
 - Docker Compose for API, app and database containers
 - Simple filesystem for filestore
 
-### Datalab versioning
+### *datalab* versioning
 
 The Ansible playbooks will deploy the datalab version that is included as a `git
 submodule` to this repository.
@@ -77,21 +82,28 @@ to deploy *datalab*, and that it is:
 - accessible via SSH (using your local SSH config),
 - running Ubuntu 22.04 or a similar distro with `apt` available.
 
-It also assumes you have set up Ansible on your local machine, and it is
-expected that this machine is at least a Unix-like OS with `git` and `bash`
-and `sed` available.
-You can find instructions for this in the [Ansible documentation](https://docs.ansible.com/ansible/latest/getting_started/get_started_ansible.html).
-You can also simply install ansible from the `requirements.txt` file with `pip`
-after cloning:
+It also assumes that your local machine is running a Unix-like OS (Linux, WSL, macOS) with `git` and `bash`,
+`make` and `sed` available.
 
-The first step is to clone this repository (or your fork) with submodules and
-then install Ansible (if not done already):
+You can find more information on the requirements of the server and control node in the [Ansible documentation](https://docs.ansible.com/ansible/latest/getting_started/get_started_ansible.html).
+
+The first step is to clone this repository (or your fork/templated version) with submodules and then install Ansible and its dependencies.
+We recommend using [uv](https://astral.sh/uv) for this, as the included [Makefile] will use it to run the playbooks in a virtual
+environment.
 
 ```shell
 git clone --recurse-submodules git@github.com:datalab-org/datalab-ansible-terraform
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+cd datalab-ansible-terraform
+uv venv --python 3.12
+uv pip install -r requirements.txt
+```
+
+or alternatively,
+
+```shell
+git clone --recurse-submodules git@github.com:datalab-org/datalab-ansible-terraform
+cd datalab-ansible-terraform
+make install-ansible
 ```
 
 You can then navigate to the to the `./ansible` directory to begin configuring
@@ -145,10 +157,20 @@ To encrypt them, you can run
 ansible-vault encrypt inventory.yml vaults/datalab/prod_config.json vaults/datalab/.env vaults/datalab/.env_server vaults/datalab/.ssh/* vaults/borg/.ssh/*
 ```
 
+or simply
+
+```shell
+make encrypt-vaults
+```
+
 and provide a password when prompted (which will then need to be kept safe and
-used every time the Ansible playbook is run). Omit the optional SSH wildcards if no
-SSH keys are required.
-You should never commit these files directly without encryption.
+used every time the Ansible playbook is run).
+You should never commit these files directly without encryption, even to a
+private git repository.
+
+If you are using your own domain (configured via `app_url` and `api_url` in the inventory),
+then you will need to update your domain's DNS settings so that your subdomains point to the IP
+of the server as given in your inventory file.
 
 Once all these configuration steps have been performed, we can try to execute
 the Ansible "playbook" that will install all the pre-requisite services, build
@@ -161,10 +183,13 @@ This is achieved by running:
 ansible-playbook --ask-vault-pass -i inventory.yml playbook.yml
 ```
 
-If completed successfully, the server should now be running a *datalab*
-instance at your configured URL!
+or simply
 
-If you are using your own domain, you will need to update your DNS settings so that your domain name points to the IP of the server as given in your inventory file.
+```
+make
+```
+
+If completed successfully, the server should now be running a *datalab* instance at your configured URLs!
 
 #### Keeping things up to date
 
@@ -194,6 +219,45 @@ be careful to review these changes before committing them to your fork,
 especially if you have made any custom changes to the playbooks.
 Be sure to also commit the changes to your submodule so you know precisely which versions
 of the playbooks are running.
+
+The [`Makefile`] also contains a number of other useful commands, such as:
+
+```shell
+make vaults
+```
+
+to edit the encrypted vault files, and
+
+```shell
+make list
+```
+
+to list all of the available Ansible tags that can be run individually.
+
+#### Bitwarden integration
+
+Constantly entering the vault password for every attempted deployment can be a
+bit tedious, so by default, the `Makefile` will attempt to retrieve the vault
+password from a local [Bitwarden CLI](https://bitwarden.com/help/cli/) installation,
+which either only requires you to enter your Bitwarden password once per
+session, or can be configured to remain logged in.
+
+To use this feature, you will need to store your vault password in Bitwarden
+using the same name as the cloned repository as reported locally by
+
+```shell
+$ git remote get-url origin
+git@github.com:datalab-org/datalab-demo-deployment
+                           {^^^^^^^^^^^^^^^^^^^^^}
+                               repository name
+```
+
+If you intially cloned this repo and then renamed it, you can update your local
+version to use the same name using:
+
+```shell
+git remote set-url origin <my-git-repo-url>
+```
 
 #### Backups
 

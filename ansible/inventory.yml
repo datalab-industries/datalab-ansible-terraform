@@ -4,6 +4,7 @@ ungrouped:
     <hostname>:
       ansible_become_method: sudo
       ansible_user: <remote_username>
+      datalab_prefix: <desired_datalab_prefix (used for monitoring labels)>
       api_url: <desired_datalab_api_url>
       app_url: <desired_datalab_app_url>
       mount_data_disk: <disk device file location, e.g., /dev/sda, /dev/sdb or otherwise>
@@ -11,3 +12,6 @@ ungrouped:
       borg_encryption_passphrase: <the passphrase for the borg encryption>
       borg_remote_path: <the command to run borg on the repository (e.g., borg1 vs borg2)>
       borg_repository: <the path to the borg repository, either local or remote>
+      prometheus_url: <the url to the prometheus server>
+      prometheus_user: <the username to access the prometheus server>
+      prometheus_password: <the password to access the prometheus server>

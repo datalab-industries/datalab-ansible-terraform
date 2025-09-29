@@ -297,6 +297,36 @@ to set up any extra settings (e.g., proxies, host checking), or an `.ssh/known_h
 > for your encrypted Borg backups, feel free to reach out to us as we may have
 > enough of an overhead to be a secondary backup host for you.
 
+#### Server monitoring
+
+One basic option for uptime monitoring is to use a free GitHub Actions based
+service like [Upptime](https://github.com/upptime/upptime).
+For example, this is used for simple services in the central *datalab* organisation at [datalab-org/datalab-org-status](https://github.com/datalab-org/datalab-org-status).
+
+For more advanced monitoring, the Ansible playbooks contain a role tagged as
+`monitoring`, which will install and configure metrics harvesters using
+[Prometheus](https://prometheus.io/) (with [Node Exporter](https://github.com/prometheus/node_exporter) and
+[cAdvisor](https://github.com/google/cadvisor)) to monitor the host system and
+containers.
+
+To make use of this monitoring, you will need your own [Grafana instance](https://grafana.com/oss/grafana) (also running Prometheus as a harvester of the remote metrics) to visualise the metrics.
+
+Alternatively, you can use a hosted Grafana service such as [Grafana Cloud](https://grafana.com/products/cloud/), or request to use our central
+*datalab* Grafana instance by reaching out to us on Slack or over email.
+
+This integration can be enabled by adding the following variables to your inventory:
+
+```yaml
+prometheus_url: <your_prometheus_instance_url>
+prometheus_user: <your_prometheus_username>
+prometheus_password: <your_prometheus_password>
+```
+and then running the playbook with the `monitoring` tag:
+
+```shell
+make monitoring
+```
+
 ### Cloud provisioning
 
 These instructions will use OpenTofu, an open source fork of Terraform.

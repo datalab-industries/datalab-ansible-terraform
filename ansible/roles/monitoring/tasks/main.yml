@@ -1,0 +1,85 @@
+---
+- name: Check if prometheus_url is configured in inventory
+  when:
+    - prometheus_url is defined
+    - prometheus_user is defined
+    - prometheus_password is defined
+  block:
+    - name: Launch node_exporter container
+      community.docker.docker_container:
+        name: node-exporter
+        image: prom/node-exporter:v1.9.1
+        network_mode: host
+        pid_mode: host
+        state: started
+        restart_policy: always
+        command:
+          - --path.rootfs=/host
+          - --path.procfs=/host/proc
+          - --path.sysfs=/host/sys
+          - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+        ports:
+          - 9100:9100
+        volumes:
+          # Mount the host's /proc directory to the container's /host/proc directory
+          # This is necessary for the node_exporter to be able to access the host's metrics
+          - /:/host:ro,rslave
+          - /proc:/host/proc:ro
+          - /sys:/host/sys:ro
+          - /etc/machine-id:/etc/machine-id:ro
+          - /etc/timezone:/etc/timezone:ro
+        healthcheck:
+          test: [CMD, wget, -q, --spider, http://localhost:9100/metrics]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 5s
+
+    - name: Launch cadvisor container
+      community.docker.docker_container:
+        name: cadvisor
+        image: gcr.io/cadvisor/cadvisor:v0.52.1
+        network_mode: host
+        pid_mode: host
+        state: started
+        restart_policy: always
+        ports:
+          - 8080:8080
+        volumes:
+          - /:/rootfs:ro
+          - /var/run:/var/run:rw
+          - /sys:/sys:ro
+          - /var/lib/docker/:/var/lib/docker:ro
+
+    - name: Render prometheus config
+      ansible.builtin.template:
+        src: prometheus.yml.j2
+        dest: "{{ ansible_user_home_dir }}/prometheus.yml"
+        mode: "0644"
+      register: prometheus_config
+
+    - name: Launch prometheus container
+      community.docker.docker_container:
+        name: prometheus
+        image: prom/prometheus:v3.6.0
+        recreate: "{{ prometheus_config.changed }}"
+        network_mode: host
+        state: started
+        restart_policy: always
+        command:
+          - --config.file=/etc/prometheus/prometheus.yml
+          - --storage.tsdb.path=/prometheus
+          - --web.console.libraries=/etc/prometheus/console_libraries
+          - --web.console.templates=/etc/prometheus/consoles
+          - --web.enable-lifecycle
+        ports:
+          - 9090:9090
+        volumes:
+          - "prometheus_data:/prometheus"
+          - "{{ ansible_user_home_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+        healthcheck:
+          test: [CMD, wget, -q, --spider, http://localhost:9090/-/healthy]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 5s

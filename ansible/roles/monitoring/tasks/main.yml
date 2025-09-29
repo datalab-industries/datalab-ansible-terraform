@@ -1,7 +1,7 @@
 ---
 - name: Check if prometheus_url is configured in inventory
   when:
-    - prometheus_url is defined
+    - prometheus_remote_write_url is defined
     - prometheus_user is defined
     - prometheus_password is defined
   block:

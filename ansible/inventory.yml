@@ -12,6 +12,6 @@ ungrouped:
       borg_encryption_passphrase: <the passphrase for the borg encryption>
       borg_remote_path: <the command to run borg on the repository (e.g., borg1 vs borg2)>
       borg_repository: <the path to the borg repository, either local or remote>
-      prometheus_url: <the url to the prometheus server>
+      prometheus_remote_write_url: <the url to the prometheus server>
       prometheus_user: <the username to access the prometheus server>
       prometheus_password: <the password to access the prometheus server>

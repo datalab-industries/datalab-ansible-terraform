@@ -132,6 +132,9 @@ ungrouped:
       borg_encryption_passphrase: <the passphrase for the borg encryption>
       borg_remote_path: <the command to run borg on the repository (e.g., borg1 vs borg2)>
       borg_repository: <the path to the borg repository, either local or remote>
+      prometheus_remote_write_url: <your_prometheus_instance_url>
+      prometheus_user: <your_prometheus_username>
+      prometheus_password: <your_prometheus_password>
 ```
 
 where `<hostname>` and the various setting should be configured with your chosen
@@ -317,7 +320,7 @@ Alternatively, you can use a hosted Grafana service such as [Grafana Cloud](http
 This integration can be enabled by adding the following variables to your inventory:
 
 ```yaml
-prometheus_url: <your_prometheus_instance_url>
+prometheus_remote_write_url: <your_prometheus_instance_url>
 prometheus_user: <your_prometheus_username>
 prometheus_password: <your_prometheus_password>
 ```

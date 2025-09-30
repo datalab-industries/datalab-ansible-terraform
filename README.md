@@ -132,7 +132,7 @@ ungrouped:
       borg_encryption_passphrase: <the passphrase for the borg encryption>
       borg_remote_path: <the command to run borg on the repository (e.g., borg1 vs borg2)>
       borg_repository: <the path to the borg repository, either local or remote>
-      prometheus_remote_write_url: <your_prometheus_instance_url>
+      prometheus_remote_write_url: <your_prometheus_instance_url, e.g., https://grafana.datalab.industries/prometheus/api/v1/write>
       prometheus_user: <your_prometheus_username>
       prometheus_password: <your_prometheus_password>
 ```
@@ -329,7 +329,7 @@ Alternatively, you can use a hosted Grafana service such as [Grafana Cloud](http
 This integration can be enabled by adding the following variables to your inventory:
 
 ```yaml
-prometheus_remote_write_url: <your_prometheus_instance_url>
+prometheus_remote_write_url: <your_prometheus_instance_url, e.g., https://grafana.datalab.industries/prometheus/api/v1/write>
 prometheus_user: <your_prometheus_username>
 prometheus_password: <your_prometheus_password>
 ```

@@ -262,6 +262,15 @@ version to use the same name using:
 git remote set-url origin <my-git-repo-url>
 ```
 
+You can also simply edit the `.vault-pass.sh` script to return your vault
+password in another way if you prefer.
+
+You may also need to set the script to be executable with
+
+```shell
+chmod u+x .vault-pass.sh
+```
+
 #### Backups
 
 ##### Native backups

@@ -132,6 +132,9 @@ ungrouped:
       borg_encryption_passphrase: <the passphrase for the borg encryption>
       borg_remote_path: <the command to run borg on the repository (e.g., borg1 vs borg2)>
       borg_repository: <the path to the borg repository, either local or remote>
+      prometheus_remote_write_url: <your_prometheus_instance_url, e.g., https://grafana.datalab.industries/prometheus/api/v1/write>
+      prometheus_user: <your_prometheus_username>
+      prometheus_password: <your_prometheus_password>
 ```
 
 where `<hostname>` and the various setting should be configured with your chosen
@@ -259,6 +262,15 @@ version to use the same name using:
 git remote set-url origin <my-git-repo-url>
 ```
 
+You can also simply edit the `.vault-pass.sh` script to return your vault
+password in another way if you prefer.
+
+You may also need to set the script to be executable with
+
+```shell
+chmod u+x .vault-pass.sh
+```
+
 #### Backups
 
 ##### Native backups
@@ -296,6 +308,36 @@ to set up any extra settings (e.g., proxies, host checking), or an `.ssh/known_h
 > If you are running a *datalab* instance yourself and are looking for a place
 > for your encrypted Borg backups, feel free to reach out to us as we may have
 > enough of an overhead to be a secondary backup host for you.
+
+#### Server monitoring
+
+One basic option for uptime monitoring is to use a free GitHub Actions based
+service like [Upptime](https://github.com/upptime/upptime).
+For example, this is used for simple services in the central *datalab* organisation at [datalab-org/datalab-org-status](https://github.com/datalab-org/datalab-org-status).
+
+For more advanced monitoring, the Ansible playbooks contain a role tagged as
+`monitoring`, which will install and configure metrics harvesters using
+[Prometheus](https://prometheus.io/) (with [Node Exporter](https://github.com/prometheus/node_exporter) and
+[cAdvisor](https://github.com/google/cadvisor)) to monitor the host system and
+containers.
+
+To make use of this monitoring, you will need your own [Grafana instance](https://grafana.com/oss/grafana) (also running Prometheus as a harvester of the remote metrics) to visualise the metrics.
+
+Alternatively, you can use a hosted Grafana service such as [Grafana Cloud](https://grafana.com/products/cloud/), or request to use our central
+*datalab* Grafana instance by reaching out to us on Slack or over email.
+
+This integration can be enabled by adding the following variables to your inventory:
+
+```yaml
+prometheus_remote_write_url: <your_prometheus_instance_url, e.g., https://grafana.datalab.industries/prometheus/api/v1/write>
+prometheus_user: <your_prometheus_username>
+prometheus_password: <your_prometheus_password>
+```
+and then running the playbook with the `monitoring` tag:
+
+```shell
+make monitoring
+```
 
 ### Cloud provisioning
 

@@ -67,7 +67,7 @@
     - name: Pull borgmatic image
       become: true
       community.docker.docker_image:
-        image: ghcr.io/borgmatic-collective/borgmatic:2
+        name: ghcr.io/borgmatic-collective/borgmatic:2
         source: pull
         state: present
 

@@ -18,7 +18,7 @@
         dest: "{{ ansible_user_home_dir }}/borgmatic"
 
     - name: Sync local ssh config vault remote
-      when: ssh_config_defined
+      when: ssh_config.stat.exists
       become: true
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/vaults/borg/.ssh/"
@@ -64,29 +64,23 @@
         borg_ssh_command: ssh
         borg_lock_wait_time: 5
 
-    - name: Build borgmatic image
+    - name: Pull borgmatic image
       become: true
       community.docker.docker_image:
-        name: datalab-borgmatic
-        source: build
+        image: ghcr.io/borgmatic-collective/borgmatic:2
+        source: pull
         state: present
-        force_source: true
-        build:
-          path: "{{ ansible_user_home_dir }}/borgmatic"
 
     - name: Create borg repository if it does not exist
-      ansible.builtin.shell:
-        cmd: docker run --rm --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic borgmatic init --encryption=repokey -c /etc/borgmatic/config.yaml
-        executable: /bin/bash
-      register: new_borg_repository
-      changed_when: '"Repository already exists" not in new_borg_repository.stdout'
-      failed_when: new_borg_repository.rc != 0
-
-    - name: Perform first backup if borg repo was just created
-      ansible.builtin.shell:
-        cmd: docker run --rm --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic # noqa: no-changed-when
-        executable: /bin/bash
-      when: new_borg_repository.changed # noqa: no-handler
+      community.docker.docker_container:
+        image: ghcr.io/borgmatic-collective/borgmatic:2
+        name: datalab-borgmatic
+        volumes:
+          - "{{ ansible_user_home_dir }}/borgmatic/config.yaml:/etc/borgmatic.d/config.yaml"
+          - "{{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh"
+          - /data:/data
+        command: borgmatic init --encryption=repokey
+        auto_remove: true
 
     - name: Add Cron job for borgmatic
       ansible.builtin.cron:
@@ -94,4 +88,4 @@
         hour: "2"
         minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
         user: "{{ ansible_user }}"
-        job: docker run --rm --network datalab_backend -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data datalab-borgmatic # noqa: line-length
+        job: docker run --rm --network datalab_backend --name datalab-borgmatic -v {{ ansible_user_home_dir }}/borgmatic/config.yaml:/etc/borgmatic.d/config.yaml -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data ghcr.io/borgmatic-collective/borgmatic:2 borgmatic -v 1 # noqa: line-length

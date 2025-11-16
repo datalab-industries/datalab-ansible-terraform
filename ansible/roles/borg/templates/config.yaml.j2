@@ -2,6 +2,8 @@
 ---
 # Managed by Ansible, please don't edit manually
 
+verbosity: 1
+
 # Full config: https://torsion.org/borgmatic/docs/reference/config.yaml
 location:
 {% if borg_source_directories is not defined or borg_source_directories | length == 0 %}

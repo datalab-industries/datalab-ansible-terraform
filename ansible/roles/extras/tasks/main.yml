@@ -1,0 +1,29 @@
+---
+- name: Check if extras folder exists
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../src/extras"
+  register: extras_folder
+  delegate_to: localhost
+
+- name: Check for extra docker-compose.yml
+  when: extras_folder.stat.exists
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../src/extras/docker-compose.yml"
+  register: extra_compose
+  delegate_to: localhost
+
+- name: Deploy any extras
+  when: extras_folder.stat.exists and extra_compose.stat.exists
+  block:
+    - name: Sync any extras into extras folder on remote
+      ansible.posix.synchronize:
+        src: "{{ playbook_dir }}/../src/extras"
+        dest: "{{ ansible_user_home_dir }}"
+        recursive: true
+        delete: false
+      failed_when: false
+
+    - name: Build and launch any extras containers
+      community.docker.docker_compose_v2:
+        project_src: "{{ ansible_user_home_dir }}/extras"
+        build: always

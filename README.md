@@ -135,6 +135,10 @@ ungrouped:
       prometheus_remote_write_url: <your_prometheus_instance_url, e.g., https://grafana.datalab.industries/prometheus/api/v1/write>
       prometheus_user: <your_prometheus_username>
       prometheus_password: <your_prometheus_password>
+      extras:   # (See discussion "Running additional containers" below)
+        <service_name>:
+          url: <service_url>
+          port: <service_port>
 ```
 
 where `<hostname>` and the various setting should be configured with your chosen
@@ -338,6 +342,54 @@ and then running the playbook with the `monitoring` tag:
 ```shell
 make monitoring
 ```
+
+#### Running additional containers
+
+It is often the case that users wish to run additional services alongside *datalab* on the same server.
+This can be achieved by populating the `./src/extras` directory with directories (ideally git submodules) containing containerised applications with their own `Dockerfile` (e.g., `./src/extras/service_A/Dockerfile`) and then a top-level `./src/extras/docker-compose.yml` file that configures all extras, e.g.,
+
+```yaml
+name: extras
+services:
+  service_A:
+    build:
+      context: service_A 
+    restart: unless-stopped
+    ports:
+      - "5002:5001"
+
+networks:
+  backend:
+    driver: bridge
+```
+
+Currently it is recommended that the services expose a port rather than using Docker networking directly, but this constraint may be lifted in future.
+
+The ansible role `./ansible/roles/extras` will build and launch these containers alongside the main *datalab* stack when the playbook is run with the `extras` tag.
+Finally, the service needs to be listed in `./ansible/inventory.yml` in the `extras` section, so that NGINX can generate the correct reverse proxy rules, e.g.,
+
+```yaml
+  extras:
+    service_A:
+      url: service_A.example.com
+      port: 5002
+```
+
+which will be mapped to the (abridged) NGINX config snippet:
+
+```config 
+server {
+  listen 443 ssl;
+
+  # set the correct host(s) for your site
+  server_name service_A.example.com;
+
+  location / {
+    proxy_pass http://localhost:5002;
+  }
+
+```
+
 
 ### Cloud provisioning
 

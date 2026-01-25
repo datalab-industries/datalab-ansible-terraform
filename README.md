@@ -353,7 +353,7 @@ name: extras
 services:
   service_A:
     build:
-      context: service_A 
+      context: service_A
     restart: unless-stopped
     ports:
       - "5002:5001"
@@ -377,7 +377,7 @@ Finally, the service needs to be listed in `./ansible/inventory.yml` in the `ext
 
 which will be mapped to the (abridged) NGINX config snippet:
 
-```config 
+```config
 server {
   listen 443 ssl;
 

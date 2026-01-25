@@ -19,4 +19,3 @@ ungrouped:
         <service_name>:
           url: <service_url>
           port: <service_port>
-

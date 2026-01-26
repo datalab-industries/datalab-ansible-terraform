@@ -15,3 +15,7 @@ ungrouped:
       prometheus_remote_write_url: <your_prometheus_instance_url, e.g., https://grafana.datalab.industries/prometheus/api/v1/write>
       prometheus_user: <the username to access the prometheus server>
       prometheus_password: <the password to access the prometheus server>
+      extras:
+        <service_name>:
+          url: <service_url>
+          port: <service_port>

@@ -1,0 +1,30 @@
+{% if extras is defined and extras %}
+{% for extra, extra_config in extras.items() %}
+upstream {{ extra }} {
+    server 127.0.0.1:{{ extra_config.port }};
+}
+
+# {{ extra }} server
+server {
+  listen 443 ssl;
+  include nginx_ssl.conf;
+
+  client_max_body_size 500M;
+
+  # set the correct host(s) for your site
+  server_name {{ extra_config.url }};
+
+  location / {
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $http_host;
+    # we don't want nginx trying to do something clever with
+    # redirects, we set the Host: header above already.
+    proxy_redirect off;
+    proxy_pass http://{{ extra }};
+  }
+
+}
+
+{% endfor %}
+{% endif %}

@@ -54,7 +54,9 @@ server {
 server {
   listen 443 ssl;
   include nginx_ssl.conf;
-  client_max_body_size 500M;
+  client_max_body_size 5000M;
+  proxy_read_timeout 600s;
+  proxy_max_temp_file_size 10240m;
 
   # set the correct host(s) for your site
   server_name {{ api_url }};

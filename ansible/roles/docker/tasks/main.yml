@@ -33,6 +33,23 @@
     name: docker
     break_system_packages: true
 
+- name: Configure Docker daemon log rotation
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Docker
+
 - name: Add user '{{ ansible_ssh_user }}' to docker group
   become: true
   ansible.builtin.user:

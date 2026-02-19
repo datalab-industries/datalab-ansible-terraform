@@ -75,3 +75,28 @@
           timeout: 10s
           retries: 3
           start_period: 5s
+
+- name: Check if loki_url is configured in inventory
+  when:
+    - loki_url is defined
+    - loki_user is defined
+    - loki_password is defined
+  block:
+    - name: Render promtail config
+      ansible.builtin.template:
+        src: promtail.yml.j2
+        dest: "{{ ansible_user_home_dir }}/promtail.yml"
+        mode: "0644"
+      register: promtail_config
+
+    - name: Launch promtail container
+      community.docker.docker_container:
+        name: promtail
+        image: grafana/promtail:3.5.0
+        recreate: "{{ promtail_config.changed }}"
+        network_mode: host
+        state: started
+        restart_policy: always
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+          - "{{ ansible_user_home_dir }}/promtail.yml:/etc/promtail/config.yml:ro"

@@ -47,6 +47,13 @@
       - docker-ce
     state: present
 
+- name: Enable and start Docker service
+  become: true
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
 - name: Install Docker Module for Python
   when: docker_version.failed
   ansible.builtin.pip:

@@ -1,0 +1,11 @@
+# Plugin dependencies for this deployment.
+# Run `make lock-plugins` after modifying this file.
+
+dependencies = [
+    # "datalab-app-plugin-insitu",
+    # "datalab-app-plugin-private",
+]
+
+[tool.uv.sources]
+# datalab-app-plugin-insitu = { git = "https://github.com/datalab-org/datalab-app-plugin-insitu.git", rev = "v0.3.2" }
+# datalab-app-plugin-private = { path = "plugins/datalab-app-plugin-private", editable = true }

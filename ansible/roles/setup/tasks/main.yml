@@ -10,6 +10,7 @@
 
 - name: Install aptitude
   become: true
+  when: ansible_os_family == 'Debian'
   ansible.builtin.apt:
     name: aptitude
     state: present
@@ -17,7 +18,7 @@
 
 - name: Install required system packages (24.04)
   become: true
-  when: ansible_distribution_version == '24.04'
+  when: ansible_os_family == 'Debian' and ansible_distribution_version == '24.04'
   ansible.builtin.apt:
     pkg:
       - ca-certificates
@@ -27,7 +28,7 @@
 
 - name: Install required system packages (22.04)
   become: true
-  when: ansible_distribution_version == '22.04'
+  when: ansible_os_family == 'Debian' and ansible_distribution_version == '22.04'
   ansible.builtin.apt:
     pkg:
       - ca-certificates
@@ -35,3 +36,12 @@
       - python3.10-venv
     state: present
     update_cache: true
+
+- name: Install required system packages (RHEL)
+  become: true
+  when: ansible_os_family == 'RedHat'
+  ansible.builtin.dnf:
+    name:
+      - ca-certificates
+      - python3-pip
+    state: present

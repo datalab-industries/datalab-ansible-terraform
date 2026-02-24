@@ -7,25 +7,45 @@
 
 - name: Add Docker GPG apt Key
   become: true
-  when: docker_version.failed
+  when: docker_version.failed and ansible_os_family == 'Debian'
   ansible.builtin.apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     state: present
 
 - name: Add Docker Repository
   become: true
-  when: docker_version.failed
+  when: docker_version.failed and ansible_os_family == 'Debian'
   ansible.builtin.apt_repository:
     repo: deb https://download.docker.com/linux/ubuntu focal stable
     state: present
 
 - name: Update apt and install docker-ce
   become: true
-  when: docker_version.failed
+  when: docker_version.failed and ansible_os_family == 'Debian'
   ansible.builtin.apt:
     name: docker-ce
     state: present
     update_cache: true
+
+- name: Add Docker CE repo (RedHat)
+  become: true
+  when: docker_version.failed and ansible_os_family == 'RedHat'
+  ansible.builtin.yum_repository:
+    name: docker-ce
+    description: Docker CE Stable
+    baseurl: https://download.docker.com/linux/rhel/$releasever/$basearch/stable
+    gpgcheck: true
+    gpgkey: https://download.docker.com/linux/rhel/gpg
+    state: present
+
+- name: Install container-selinux and docker-ce (RedHat)
+  become: true
+  when: docker_version.failed and ansible_os_family == 'RedHat'
+  ansible.builtin.dnf:
+    name:
+      - container-selinux
+      - docker-ce
+    state: present
 
 - name: Install Docker Module for Python
   when: docker_version.failed

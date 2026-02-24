@@ -1,11 +1,21 @@
 ---
-- name: Install
+- name: Install fail2ban (Debian)
   become: true
+  when: ansible_os_family == 'Debian'
   ansible.builtin.apt:
     pkg:
       - fail2ban
     state: present
     update_cache: true
+
+- name: Install fail2ban (RedHat)
+  become: true
+  when: ansible_os_family == 'RedHat'
+  ansible.builtin.dnf:
+    name:
+      - epel-release
+      - fail2ban
+    state: present
 
 - name: Update config file
   become: true

@@ -1,5 +1,10 @@
 ---
 - name: Check OS is compatible
   ansible.builtin.fail:
-    msg: This role is only compatible with Ubuntu 22.04/24.04
-  when: ansible_distribution != 'Ubuntu' or ansible_distribution_version != '22.04' and ansible_distribution_version != '24.04'
+    msg: "This role is only compatible with Ubuntu 22.04/24.04 or RHEL 9"
+  when: >
+    not (
+      (ansible_distribution == 'Ubuntu' and ansible_distribution_version in ['22.04', '24.04'])
+      or
+      (ansible_distribution == 'RedHat' and ansible_distribution_major_version == '9')
+    )

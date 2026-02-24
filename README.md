@@ -92,7 +92,9 @@ We recommend using [uv](https://astral.sh/uv) for this, as the included [Makefil
 environment.
 
 ```shell
-git clone --recurse-submodules git@github.com:datalab-org/datalab-ansible-terraform
+git clone git@github.com:datalab-industries/datalab-ansible-terraform
+git submodule init
+git submodule update
 cd datalab-ansible-terraform
 uv venv --python 3.12
 uv pip install -r requirements.txt
@@ -101,7 +103,9 @@ uv pip install -r requirements.txt
 or alternatively,
 
 ```shell
-git clone --recurse-submodules git@github.com:datalab-org/datalab-ansible-terraform
+git clone git@github.com:datalab-industries/datalab-ansible-terraform
+git submodule init
+git submodule update
 cd datalab-ansible-terraform
 make install-ansible
 ```

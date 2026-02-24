@@ -8,17 +8,10 @@
     state: present
     update_cache: true
 
-- name: Install fail2ban (RedHat)
-  become: true
-  when: ansible_os_family == 'RedHat'
-  ansible.builtin.dnf:
-    name:
-      - epel-release
-      - fail2ban
-    state: present
 
 - name: Update config file
   become: true
+  when: ansible_os_family == 'Debian'
   ansible.builtin.template:
     src: etc/fail2ban/fail2ban.local.j2
     dest: /etc/fail2ban/fail2ban.local
@@ -29,6 +22,7 @@
 
 - name: Update configuration file - /etc/fail2ban/jail.local
   become: true
+  when: ansible_os_family == 'Debian'
   ansible.builtin.template:
     src: etc/fail2ban/jail.local.j2
     dest: /etc/fail2ban/jail.local
@@ -39,6 +33,7 @@
 
 - name: Copy filters
   become: true
+  when: ansible_os_family == 'Debian'
   ansible.builtin.copy:
     src: "{{ item }}"
     dest: /etc/fail2ban/filter.d/
@@ -50,6 +45,7 @@
   notify: restart fail2ban
 
 - name: Start fail2ban (with systemd)
+  when: ansible_os_family == 'Debian'
   ansible.builtin.systemd:
     name: fail2ban
     state: started

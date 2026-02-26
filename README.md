@@ -80,7 +80,7 @@ These instructions assume you have prepared the server on which you would like
 to deploy *datalab*, and that it is:
 
 - accessible via SSH (using your local SSH config),
-- running Ubuntu 22.04 or a similar distro with `apt` available.
+- running one of the supported Linux distributions, e.g., Ubuntu 24.04 (see [Supported distributions](#supported-distributions)),
 
 It also assumes that your local machine is running a Unix-like OS (Linux, WSL, macOS) with `git` and `bash`,
 `make` and `sed` available.
@@ -201,6 +201,17 @@ make
 ```
 
 If completed successfully, the server should now be running a *datalab* instance at your configured URLs!
+
+#### Supported distributions
+
+The Ansible playbooks have been tested on Ubuntu (22.04, 24.04) and Red Hat Enterprise Linux 9.7, and will likely work on any Debian-based distribution that uses `apt` and `systemd`.
+
+As the *datalab* deployment itself is containerised, as long as Docker can be installed independently of the playbooks, then the deployment playbook should work on any distribution, but some features
+will not be available (e.g., automatic mounting of data disks, fail2ban, etc.) if the underlying OS is not supported by the playbooks.
+
+If you need to support for a specific Linux distribution, please raise an
+issue on GitHub at [datalab-industries/datalab-ansible-terraform](https://github.com/datalab-industries/datalab-ansible-terraform/issues).
+Official support will not be provided for Windows or macOS as target servers.
 
 #### Keeping things up to date
 

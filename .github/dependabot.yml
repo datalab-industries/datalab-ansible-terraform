@@ -1,7 +1,7 @@
 version: 2
 updates:
 - package-ecosystem: docker
-  directory: "./ansible/roles"
+  directories: ["./ansible/roles/nginx/files/Dockerfile", "./ansible/roles/ssl_first_run/files/Dockerfile"]
   schedule:
     interval: "daily"
     time: "05:31"
@@ -17,7 +17,7 @@ updates:
   labels:
     - dependency_updates
 - package-ecosystem: "gitsubmodule"
-  directory: "./src"
+  directory: "."
   schedule:
     interval: "daily"
     time: "05:31"

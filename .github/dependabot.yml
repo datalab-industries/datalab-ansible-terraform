@@ -1,7 +1,7 @@
 version: 2
 updates:
 - package-ecosystem: docker
-  directories: ["./ansible/roles/nginx/files/Dockerfile", "./ansible/roles/ssl_first_run/files/Dockerfile"]
+  directories: ["./ansible/roles/nginx/files/", "./ansible/roles/ssl_first_run/files/"]
   schedule:
     interval: "daily"
     time: "05:31"

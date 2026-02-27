@@ -13,7 +13,7 @@ jobs:
         with:
           submodules: true
       - name: Renovate bot
-        uses: renovatebot/github-action@v40.1.11
+        uses: renovatebot/github-action@v46.1.2
         with:
           renovate-version: full
           token: ${{ secrets.RENOVATE_TOKEN }}

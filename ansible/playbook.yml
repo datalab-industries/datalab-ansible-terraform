@@ -23,6 +23,9 @@
     - role: datalab
       name: Build and launch datalab services
       tags: [setup, deploy]
+    - role: extras
+      name: Deploy any extras found in src/extras
+      tags: [setup, extras]
     - role: nginx
       name: Launch nginx container with autorenewing certbot
       tags: [setup, maintenance, ssl]

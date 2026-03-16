@@ -10,6 +10,7 @@
   ansible.builtin.stat:
     path: "{{ playbook_dir }}/../src/plugins"
   register: plugins_dir
+  delegate_to: localhost
 
 - name: Sync any plugins into datalab folder on remote
   when: plugins_dir.stat.isdir is defined and plugins_dir.stat.isdir
@@ -17,7 +18,22 @@
     src: "{{ playbook_dir }}/../src/plugins"
     dest: "{{ ansible_user_home_dir }}/datalab/pydatalab"
     recursive: true
-    delete: false
+    delete: true
+  failed_when: false
+
+- name: Check for custom public folder
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../src/public/custom"
+  delegate_to: localhost
+  register: public_dir
+
+- name: Sync public folder into datalab folder on remote
+  when: public_dir.stat.isdir is defined and public_dir.stat.isdir
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../src/public/custom"
+    dest: "{{ ansible_user_home_dir }}/datalab/webapp/public"
+    recursive: true
+    delete: true
   failed_when: false
 
 - name: Copy encrypted API env file from vault

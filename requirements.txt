@@ -1,2 +1,3 @@
 ansible-core ~= 2.17, < 2.19
 pre-commit
+uv ~= 0.9

@@ -20,6 +20,26 @@
     delete: false
   failed_when: false
 
+- name: Check for combined plugin pyproject overlay
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../src/build/pyproject.toml"
+  register: combined_pyproject
+  delegate_to: localhost
+
+- name: Overlay combined pyproject.toml for plugin support
+  when: combined_pyproject.stat.exists
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/build/pyproject.toml"
+    dest: "{{ ansible_user_home_dir }}/datalab/pydatalab/pyproject.toml"
+    mode: "0644"
+
+- name: Overlay combined uv.lock for plugin support
+  when: combined_pyproject.stat.exists
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/build/uv.lock"
+    dest: "{{ ansible_user_home_dir }}/datalab/pydatalab/uv.lock"
+    mode: "0644"
+
 - name: Copy encrypted API env file from vault
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/vaults/datalab/.env_server"

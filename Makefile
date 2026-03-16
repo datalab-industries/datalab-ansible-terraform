@@ -32,6 +32,19 @@ vaults:
 		fi; \
 	done
 
+lock-plugins: src/plugins/plugins.toml
+	@echo "Generating combined pyproject.toml with plugins..."
+	mkdir -p src/build
+	ln -sfn ../plugins src/build/plugins
+	ln -sfn ../datalab/pydatalab/pydatalab src/build/pydatalab
+	python scripts/combine_pyproject.py \
+		--base src/datalab/pydatalab/pyproject.toml \
+		--plugins src/plugins/plugins.toml \
+		--output src/build/pyproject.toml
+	@echo "Locking combined dependencies..."
+	cd src/build && uv lock
+	@echo "Done. Commit src/build/pyproject.toml and src/build/uv.lock"
+
 %:
 	@if echo "$(VALID_TAGS)" | grep -wq "$@"; then \
 		echo "Running playbook with tag: $@"; \
@@ -43,4 +56,4 @@ vaults:
 	fi
 
 
-.PHONY: list
+.PHONY: list lock-plugins

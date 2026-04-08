@@ -73,6 +73,12 @@
     dest: "{{ ansible_user_home_dir }}/datalab/webapp/.env"
     mode: "0644"
 
+- name: Run docker system prune to clean up old containers and images
+  community.docker.docker_prune:
+    builder_cache_keep_storage: 5G
+    images: true
+    containers: true
+
 - name: Build and launch database container
   community.docker.docker_compose_v2:
     project_src: "{{ ansible_user_home_dir }}/datalab"

@@ -1,4 +1,4 @@
-FROM nginx:1.29.5
+FROM nginx:1.29.8
 
 WORKDIR /app
 

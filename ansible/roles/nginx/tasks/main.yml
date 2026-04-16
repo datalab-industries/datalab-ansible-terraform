@@ -17,6 +17,12 @@
     dest: "{{ ansible_user_home_dir }}/nginx/rendered/include/nginx_datalab.conf"
     mode: "0644"
 
+- name: Render templated extras config
+  ansible.builtin.template:
+    src: nginx_extras.conf.j2
+    dest: "{{ ansible_user_home_dir }}/nginx/rendered/include/nginx_extras.conf"
+    mode: "0644"
+
 - name: Render templated SSL config
   ansible.builtin.template:
     src: nginx_ssl.conf.j2

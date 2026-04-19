@@ -1,2 +1,2 @@
 #!/bin/sh
-certbot certonly --webroot -w /var/www/certbot --register-unsafely-without-email --no-eff-email --agree-tos -d {{ app_url }} -d {{ api_url }}
+certbot certonly --webroot -w /var/www/certbot --expand --register-unsafely-without-email --no-eff-email --agree-tos -d {{ app_url }} -d {{ api_url }}{% if extras is defined and extras %}{% for extra, extra_config in extras.items() %} -d {{ extra_config.url }}{% endfor %}{% endif %}

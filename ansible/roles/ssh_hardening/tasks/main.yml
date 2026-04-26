@@ -1,0 +1,21 @@
+---
+- name: Drop sshd hardening config
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-datalab-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by datalab-ansible-terraform; do not edit by hand.
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      ChallengeResponseAuthentication no
+      PubkeyAuthentication yes
+      PermitRootLogin {{ sshd_permit_root_login }}
+  notify: Restart sshd
+
+- name: Validate full sshd config
+  become: true
+  ansible.builtin.command: /usr/sbin/sshd -t
+  changed_when: false

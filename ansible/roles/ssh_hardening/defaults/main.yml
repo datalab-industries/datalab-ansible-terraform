@@ -1,0 +1,4 @@
+---
+# When ansible_user is not root, ban root SSH outright. Otherwise allow
+# key-only root login (matches the legacy root-only setup).
+sshd_permit_root_login: "{{ 'no' if ansible_user != 'root' else 'prohibit-password' }}"

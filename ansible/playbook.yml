@@ -1,12 +1,22 @@
 ---
+- name: Capture inventory ansible_user before bootstrap overrides it
+  hosts: all
+  gather_facts: false
+  # set_fact runs locally and doesn't open an SSH connection, so this is
+  # safe even when ansible_user can't yet authenticate against the host.
+  tasks:
+    - name: Stash target ansible_user as a host fact
+      ansible.builtin.set_fact:
+        target_ansible_user: "{{ ansible_user }}"
+      tags: [setup, bootstrap]
+
 - name: Bootstrap non-root ansible_user
   hosts: all
   gather_facts: true
   # Connect as root to create the target ansible_user before later plays
-  # connect as it. No-op when ansible_user is already root. Play vars
-  # outrank inventory host_vars, so this overrides them for this play only.
+  # connect as it. No-op when target_ansible_user is already root. Play
+  # vars outrank inventory host_vars, so this overrides them for this play.
   vars:
-    target_ansible_user: "{{ ansible_user }}"
     ansible_user: root
     ansible_ssh_user: root
   roles:
@@ -18,6 +28,11 @@
   vars:
     # root behaves differently than other users; set home dir accordingly
     ansible_user_home_dir: "{{ '/' + ansible_user if ansible_user == 'root' else '/home/' + ansible_user }}"
+  pre_tasks:
+    # Drop any SSH control socket from the bootstrap play so this play
+    # connects fresh as the (possibly different) inventory ansible_user.
+    - name: Reset SSH connection after bootstrap play
+      ansible.builtin.meta: reset_connection
   roles:
     - role: preflight
       name: Check if the system is ready for the playbook

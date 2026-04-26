@@ -1,16 +1,16 @@
 ---
 # Bootstraps a non-root ansible_user on a fresh machine.
-# Intended to run from a play that connects as `bootstrap_ssh_user`
-# (typically root) so it can create the user before subsequent plays
-# connect as that user. No-op when ansible_user is root.
-- name: Skip bootstrap when ansible_user is root
+# Intended to run from a play that connects as root, with
+# `target_ansible_user` set to the user that later plays will connect as.
+# No-op when target_ansible_user is root.
+- name: Skip bootstrap when target user is root
   ansible.builtin.meta: end_play
-  when: ansible_user == 'root'
+  when: target_ansible_user == 'root'
 
 - name: Ensure target user exists
   become: true
   ansible.builtin.user:
-    name: "{{ ansible_user }}"
+    name: "{{ target_ansible_user }}"
     shell: /bin/bash
     create_home: true
     state: present
@@ -18,8 +18,8 @@
 - name: Grant passwordless sudo to target user
   become: true
   ansible.builtin.copy:
-    dest: "/etc/sudoers.d/90-{{ ansible_user }}"
-    content: "{{ ansible_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    dest: "/etc/sudoers.d/90-{{ target_ansible_user }}"
+    content: "{{ target_ansible_user }} ALL=(ALL) NOPASSWD:ALL\n"
     owner: root
     group: root
     mode: "0440"
@@ -34,7 +34,7 @@
 - name: Authorize the same SSH keys for target user
   become: true
   ansible.posix.authorized_key:
-    user: "{{ ansible_user }}"
+    user: "{{ target_ansible_user }}"
     key: "{{ root_authorized_keys.content | b64decode }}"
     state: present
 

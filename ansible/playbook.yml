@@ -1,4 +1,14 @@
 ---
+- name: Bootstrap non-root ansible_user
+  hosts: all
+  gather_facts: true
+  # Connect as root to create the target ansible_user before later plays
+  # connect as it. No-op when ansible_user is already root.
+  remote_user: root
+  roles:
+    - role: bootstrap_user
+      tags: [setup, bootstrap]
+
 - name: Create and maintain a datalab
   hosts: all
   vars:
@@ -17,6 +27,9 @@
     - role: fail2ban
       name: Install and configure fail2ban
       tags: [setup]
+    - role: ssh_hardening
+      name: Disable password SSH and harden sshd
+      tags: [setup, ssh]
     - role: ssl_first_run
       name: Run stripped down nginx and SSL for the first time
       tags: [setup, ssl]

@@ -3,8 +3,12 @@
   hosts: all
   gather_facts: true
   # Connect as root to create the target ansible_user before later plays
-  # connect as it. No-op when ansible_user is already root.
-  remote_user: root
+  # connect as it. No-op when ansible_user is already root. Play vars
+  # outrank inventory host_vars, so this overrides them for this play only.
+  vars:
+    target_ansible_user: "{{ ansible_user }}"
+    ansible_user: root
+    ansible_ssh_user: root
   roles:
     - role: bootstrap_user
       tags: [setup, bootstrap]
@@ -13,7 +17,7 @@
   hosts: all
   vars:
     # root behaves differently than other users; set home dir accordingly
-    ansible_user_home_dir: "{{ '/' + ansible_ssh_user if ansible_ssh_user == 'root' else '/home/' + ansible_ssh_user }}"
+    ansible_user_home_dir: "{{ '/' + ansible_user if ansible_user == 'root' else '/home/' + ansible_user }}"
   roles:
     - role: preflight
       name: Check if the system is ready for the playbook

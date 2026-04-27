@@ -7,23 +7,26 @@
   ansible.builtin.meta: end_play
   when: target_ansible_user == 'root'
 
-- name: Ensure target user exists
+- name: Require ansible_become_password for non-root bootstrap
+  ansible.builtin.assert:
+    that:
+      - ansible_become_password is defined
+      - ansible_become_password | length > 0
+    fail_msg: >-
+      ansible_become_password must be set (typically via vault) when
+      ansible_user is not root, so the bootstrapped user can sudo.
+
+- name: Ensure target user exists with password set
   become: true
   ansible.builtin.user:
     name: "{{ target_ansible_user }}"
     shell: /bin/bash
     create_home: true
     state: present
-
-- name: Grant passwordless sudo to target user
-  become: true
-  ansible.builtin.copy:
-    dest: "/etc/sudoers.d/90-{{ target_ansible_user }}"
-    content: "{{ target_ansible_user }} ALL=(ALL) NOPASSWD:ALL\n"
-    owner: root
-    group: root
-    mode: "0440"
-    validate: /usr/sbin/visudo -cf %s
+    groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
+    append: true
+    password: "{{ ansible_become_password | password_hash('sha512') }}"
+    update_password: always
 
 - name: Read root's authorized_keys to reuse for target user
   become: true

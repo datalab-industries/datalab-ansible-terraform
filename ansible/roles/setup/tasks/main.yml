@@ -33,6 +33,7 @@
     pkg:
       - ca-certificates
       - python3-pip
+      - python3-passlib
       - python3.10-venv
     state: present
     update_cache: true

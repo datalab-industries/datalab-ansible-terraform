@@ -2,17 +2,18 @@
 - name: Capture inventory ansible_user before bootstrap overrides it
   hosts: all
   gather_facts: false
+  tags: [setup, bootstrap]
   # set_fact runs locally and doesn't open an SSH connection, so this is
   # safe even when ansible_user can't yet authenticate against the host.
   tasks:
     - name: Stash target ansible_user as a host fact
       ansible.builtin.set_fact:
         target_ansible_user: "{{ ansible_user }}"
-      tags: [setup, bootstrap]
 
 - name: Bootstrap non-root ansible_user
   hosts: all
   gather_facts: true
+  tags: [setup, bootstrap]
   # Connect as root to create the target ansible_user before later plays
   # connect as it. No-op when target_ansible_user is already root. Play
   # vars outrank inventory host_vars, so this overrides them for this play.
@@ -21,7 +22,6 @@
     ansible_ssh_user: root
   roles:
     - role: bootstrap_user
-      tags: [setup, bootstrap]
 
 - name: Create and maintain a datalab
   hosts: all

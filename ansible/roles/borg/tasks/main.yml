@@ -35,35 +35,6 @@
         mode: "0600"
         owner: "{{ ansible_ssh_user }}"
 
-      vars:
-        borg_exclude_patterns:
-          - /data/backups
-        borg_exclude_from: []
-        borg_install_method: package
-        borg_user: "{{ ansible_user }}"
-        borg_source_directories:
-          - /data
-        borgmatic_hooks:
-          before_backup:
-            - echo "`date` - Starting backup."
-          mongodb_databases:
-            - name: all
-              hostname: datalab-database-1
-              port: 27017
-        borgmatic_timer: cron
-        borg_retention_policy:
-          keep_daily: 30
-          keep_weekly: 0
-          keep_monthly: 12
-          keep_yearly: 4
-        borg_one_file_system: true
-        borgmatic_store_atime: true
-        borgmatic_store_ctime: true
-        borg_encryption_passcommand: false
-        borg_remote_rate_limit: 0
-        borg_ssh_command: ssh
-        borg_lock_wait_time: 5
-
     - name: Pull borgmatic image
       become: true
       community.docker.docker_image:

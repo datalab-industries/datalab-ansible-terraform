@@ -4,11 +4,7 @@ ungrouped:
     <hostname>:
       ansible_become_method: sudo
       ansible_user: <remote_username>
-      # Required when ansible_user is not root: used both as the user's
-      # Linux password (set during bootstrap) and as the sudo password
-      # for ansible escalation. Vault-encrypt this value.
       ansible_become_password: <sudo_password>
-
       datalab_prefix: <desired_datalab_prefix (used for monitoring labels)>
       api_url: <desired_datalab_api_url>
       app_url: <desired_datalab_app_url>

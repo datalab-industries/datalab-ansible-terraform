@@ -131,6 +131,7 @@ ungrouped:
       api_url: <desired_datalab_api_url>
       app_url: <desired_datalab_app_url>
       # Additional optional settings:
+      ansible_become_password: <remote_user_password> # (If needed for non-root user)
       mount_data_disk: <disk device file location, e.g., /dev/sda, /dev/sdb or otherwise or a full fstab configuration, e.g., `UUID=aaaa-bbbb-ccc>
       data_disk_type: <the fstype of the data disk, defaults to 'xfs'
       borg_encryption_passphrase: <the passphrase for the borg encryption>

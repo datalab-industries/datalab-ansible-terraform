@@ -29,8 +29,9 @@ def collect_repo_stats() -> list[str]:
         ["borgmatic", "info", "--json", "--last", "1"],
         stderr=subprocess.DEVNULL,
         timeout=300,
-    )
-    data = json.loads(out)[0]
+    ).decode()
+    decoded, _ = json.JSONDecoder().raw_decode(out.lstrip())
+    data = decoded[0] if isinstance(decoded, list) else decoded
     stats = data["cache"]["stats"]
     lines = [
         f"borgmatic_repo_unique_size_bytes {stats['unique_csize']}",

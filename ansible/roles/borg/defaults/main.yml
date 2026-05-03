@@ -27,9 +27,17 @@ borgmatic_timer_minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
 borg_install_method: package
 borg_require_epel: "{{ ansible_os_family == 'RedHat' and ansible_distribution != 'Fedora' }}"
 
+# Host directory read by node_exporter's textfile collector. The borgmatic
+# container bind-mounts this to /metrics and writes status metrics there.
+borg_textfile_collector_path: /var/lib/node_exporter/textfile_collector
+
 borgmatic_hooks:
   before_backup:
     - echo "`date` - Starting backup."
+  after_backup:
+    - sh -c 'printf "borgmatic_last_success_timestamp_seconds %s\nborgmatic_last_run_status 1\n" "$(date +%s)" > /metrics/borgmatic.prom.tmp && mv /metrics/borgmatic.prom.tmp /metrics/borgmatic.prom'
+  on_error:
+    - sh -c 'printf "borgmatic_last_failure_timestamp_seconds %s\nborgmatic_last_run_status 0\n" "$(date +%s)" > /metrics/borgmatic.prom.tmp && mv /metrics/borgmatic.prom.tmp /metrics/borgmatic.prom'
   mongodb_databases:
     - name: all
       hostname: datalab-database-1

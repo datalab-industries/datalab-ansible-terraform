@@ -12,6 +12,14 @@
     - borg_encryption_passphrase is defined
     - borg_remote_path is defined
   block:
+
+    - name: Ensure node_exporter textfile collector directory exists
+      become: true
+      ansible.builtin.file:
+        path: "{{ borg_textfile_collector_path }}"
+        state: directory
+        mode: "0755"
+
     - name: Sync local ssh config vault remote
       when: ssh_config.stat.exists
       become: true
@@ -54,4 +62,4 @@
         hour: "2"
         minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
         user: "{{ ansible_user }}"
-        job: timeout 6h docker run --rm --network datalab_backend --name datalab-borgmatic -v {{ ansible_user_home_dir }}/borgmatic/config.yaml:/etc/borgmatic.d/config.yaml -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data ghcr.io/borgmatic-collective/borgmatic:2 borgmatic -v 1 # noqa: line-length
+        job: timeout 6h docker run --rm --network datalab_backend --name datalab-borgmatic -v {{ ansible_user_home_dir }}/borgmatic/config.yaml:/etc/borgmatic.d/config.yaml -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data -v {{ borg_textfile_collector_path }}:/metrics ghcr.io/borgmatic-collective/borgmatic:2 borgmatic -v 1 # noqa: line-length

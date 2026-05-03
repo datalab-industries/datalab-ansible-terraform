@@ -18,6 +18,7 @@
           - --path.procfs=/host/proc
           - --path.sysfs=/host/sys
           - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+          - --collector.textfile.directory=/host/var/lib/node_exporter/textfile_collector
         volumes:
           # Mount the host's /proc directory to the container's /host/proc directory
           # This is necessary for the node_exporter to be able to access the host's metrics

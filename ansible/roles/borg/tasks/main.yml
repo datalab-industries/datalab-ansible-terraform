@@ -12,11 +12,6 @@
     - borg_encryption_passphrase is defined
     - borg_remote_path is defined
   block:
-    - name: Synchronize borgmatic files to remote
-      ansible.posix.synchronize:
-        src: "{{ role_path }}/files/"
-        dest: "{{ ansible_user_home_dir }}/borgmatic"
-
     - name: Sync local ssh config vault remote
       when: ssh_config.stat.exists
       become: true

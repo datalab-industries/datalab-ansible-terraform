@@ -35,9 +35,9 @@ borgmatic_hooks:
   before_backup:
     - echo "`date` - Starting backup."
   after_backup:
-    - sh -c 'printf "borgmatic_last_success_timestamp_seconds %s\nborgmatic_last_run_status 1\n" "$(date +%s)" > /metrics/borgmatic.prom.tmp && mv /metrics/borgmatic.prom.tmp /metrics/borgmatic.prom'
+    - python3 /borgmatic/write-metrics.py success
   on_error:
-    - sh -c 'printf "borgmatic_last_failure_timestamp_seconds %s\nborgmatic_last_run_status 0\n" "$(date +%s)" > /metrics/borgmatic.prom.tmp && mv /metrics/borgmatic.prom.tmp /metrics/borgmatic.prom'
+    - python3 /borgmatic/write-metrics.py error
   mongodb_databases:
     - name: all
       hostname: datalab-database-1

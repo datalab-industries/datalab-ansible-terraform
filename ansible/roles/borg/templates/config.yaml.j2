@@ -16,6 +16,10 @@ location:
     {% endfor %}
 {% endif %}
 
+    # Match all archives in the repo for prune/check (each host has its own repo,
+    # so no hostname-based scoping is needed).
+    match_archives: 'sh:*'
+
     # Stay in same file system (do not cross mount points).
     one_file_system: {{ borg_one_file_system }}
     repositories:
@@ -102,14 +106,6 @@ storage:
 
     # Maximum seconds to wait for acquiring a repository/cache lock.
     lock_wait: {{ borg_lock_wait_time }}
-
-    # Name of the archive. Borg placeholders can be used. See the output of
-    # "borg help placeholders" for details. Default is
-    # "{hostname}-{now:%Y-%m-%dT%H:%M:%S.%f}". If you specify this option, you must
-    # also specify a prefix in the retention section to avoid accidental pruning of
-    # archives with a different archive name format. And you should also specify a
-    # prefix in the consistency section as well.
-    archive_name_format: '{hostname}-{now:%Y-%m-%d-%H%M%S}'
 
     # Bypass Borg error about a repository that has been moved.
     relocated_repo_access_is_ok: {{ borgmatic_relocated_repo_access_is_ok }}

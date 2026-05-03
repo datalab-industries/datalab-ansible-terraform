@@ -20,6 +20,18 @@
         state: directory
         mode: "0755"
 
+    - name: Ensure borgmatic config directory exists
+      ansible.builtin.file:
+        path: "{{ ansible_user_home_dir }}/borgmatic"
+        state: directory
+        mode: "0755"
+
+    - name: Copy metrics script
+      ansible.builtin.copy:
+        src: write-metrics.py
+        dest: "{{ ansible_user_home_dir }}/borgmatic/write-metrics.py"
+        mode: "0755"
+
     - name: Sync local ssh config vault remote
       when: ssh_config.stat.exists
       become: true

@@ -21,6 +21,7 @@ def write_atomically(path: str, content: str) -> None:
     tmp = path + ".tmp"
     with open(tmp, "w") as f:
         f.write(content)
+    os.chmod(tmp, 0o644)
     os.rename(tmp, path)
 
 

@@ -28,6 +28,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Install Ansible collections
+        run: ansible-galaxy install -r ansible/requirements.yml
+
       - name: Run pre-commit
-        run: |
-          pre-commit run --all-files --show-diff-on-failure
+        run: pre-commit run --all-files --show-diff-on-failure
+
+      - name: Syntax-check playbook
+        run: ansible-playbook --syntax-check -i localhost, ansible/playbook.yml

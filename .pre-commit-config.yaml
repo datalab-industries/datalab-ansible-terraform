@@ -1,4 +1,6 @@
 exclude: ^src/.*|^ansible/vaults/datalab/.*
+default_language_version:
+  python: python3.12
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -17,5 +19,6 @@ repos:
     rev: v26.4.0
     hooks:
       - id: ansible-lint
+        language_version: python3.12
         additional_dependencies:
           - ansible

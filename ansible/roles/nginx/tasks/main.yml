@@ -37,6 +37,7 @@
     force_source: true
     build:
       path: "{{ ansible_user_home_dir }}/nginx"
+      pull: true
 
 - name: Launch nginx container
   community.docker.docker_container:

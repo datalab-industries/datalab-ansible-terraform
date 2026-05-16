@@ -257,6 +257,35 @@ make list
 
 to list all of the available Ansible tags that can be run individually.
 
+#### Installing *datalab* plugins
+
+*datalab* supports first-party and third-party plugins (custom data blocks, etc.) which extend the API server.
+Plugins can be declared in a `plugins.toml` file at the root of the *datalab* repository (alongside `pydatalab/` and `webapp/`) and installed by the `invoke dev.install` task during the API image build; see the upstream [plugins documentation](https://docs.datalab-org.io/en/latest/plugins/) for the file format and the full description of the install procedure.
+
+To install plugins on a server deployed with this repository:
+
+1. Edit the `plugins.toml` at `./src/plugins.toml`.
+   The Ansible role copies it into place on the remote so the Dockerfile picks it up at build time.
+   Example:
+   ```toml
+   dependencies = [
+       "datalab-app-plugin-insitu",
+       "my-local-plugin",
+   ]
+
+   [tool.uv.sources]
+   datalab-app-plugin-insitu = { git = "https://github.com/datalab-org/datalab-app-plugin-insitu.git", rev = "v0.4.1" }
+   my-local-plugin = { path = "pydatalab/plugins/my-local-plugin" }
+   ```
+2. Any local or private plugins can be added as git submodules under `./src/plugins/<plugin-name>/`.
+   These will be synced to the remote; the `plugins.toml` path should then refer to `pydatalab/plugins/<plugin-name>`, which is the corresponding path on the server.
+3. Run `make deploy`.
+   The API container is rebuilt with the plugins baked in.
+   Removing `./src/plugins.toml` and redeploying reverts to the base (plugin-free) lockfile.
+
+> [!WARNING]
+> Plugins run with full API server privileges; only install plugins from sources you trust.
+
 #### Bitwarden integration
 
 Constantly entering the vault password for every attempted deployment can be a

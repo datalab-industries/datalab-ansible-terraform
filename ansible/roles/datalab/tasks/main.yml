@@ -19,7 +19,25 @@
     dest: "{{ ansible_user_home_dir }}/datalab/pydatalab"
     recursive: true
     delete: true
-  failed_when: false
+
+- name: Check for plugins.toml
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../src/plugins.toml"
+  register: plugins_toml
+  delegate_to: localhost
+
+- name: Sync plugins.toml to datalab repo root (consumed by API image build)
+  when: plugins_toml.stat.exists
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../src/plugins.toml"
+    dest: "{{ ansible_user_home_dir }}/datalab/plugins.toml"
+    mode: "0644"
+
+- name: Remove stale plugins.toml from remote
+  when: not plugins_toml.stat.exists
+  ansible.builtin.file:
+    path: "{{ ansible_user_home_dir }}/datalab/plugins.toml"
+    state: absent
 
 - name: Check for custom public folder
   ansible.builtin.stat:

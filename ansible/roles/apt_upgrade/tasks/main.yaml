@@ -64,6 +64,19 @@
     - { option: apply_updates, value: 'yes' }
     - { option: reboot, value: when-needed }
 
+- name: Override dnf-automatic timer to run at 02:00 (RedHat)
+  become: true
+  when: ansible_os_family == 'RedHat'
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/dnf-automatic.timer.d/override.conf
+    mode: '0644'
+    content: |
+      [Timer]
+      OnCalendar=
+      OnCalendar=*-*-* 02:00:00
+      RandomizedDelaySec=0
+  register: dnf_automatic_timer_override
+
 - name: Enable dnf-automatic timer (RedHat)
   become: true
   when: ansible_os_family == 'RedHat'
@@ -71,3 +84,4 @@
     name: dnf-automatic.timer
     enabled: true
     state: started
+    daemon_reload: "{{ dnf_automatic_timer_override.changed }}"

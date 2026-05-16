@@ -1,23 +1,23 @@
 ---
-- name: Upgrade packages (Debian)
+- name: Upgrade packages (Ubuntu)
   become: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_distribution == 'Ubuntu'
   ansible.builtin.apt:
     upgrade: true
     update_cache: true
     cache_valid_time: 86400
 
-- name: Install unattended-upgrades (Debian)
+- name: Install unattended-upgrades (Ubuntu)
   become: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_distribution == 'Ubuntu'
   ansible.builtin.apt:
     name: unattended-upgrades
     state: present
     update_cache: true
 
-- name: Configure unattended-upgrades auto-reboot (Debian)
+- name: Configure unattended-upgrades auto-reboot (Ubuntu)
   become: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_distribution == 'Ubuntu'
   ansible.builtin.copy:
     dest: /etc/apt/apt.conf.d/52unattended-upgrades-reboot
     mode: '0644'
@@ -26,9 +26,9 @@
       Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
       Unattended-Upgrade::Automatic-Reboot-Time "02:00";
 
-- name: Enable unattended-upgrades periodic runs (Debian)
+- name: Enable unattended-upgrades periodic runs (Ubuntu)
   become: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_distribution == 'Ubuntu'
   ansible.builtin.copy:
     dest: /etc/apt/apt.conf.d/20auto-upgrades
     mode: '0644'

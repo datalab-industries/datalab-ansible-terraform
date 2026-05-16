@@ -10,7 +10,7 @@
 
 - name: Install aptitude
   become: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_distribution == 'Ubuntu'
   ansible.builtin.apt:
     name: aptitude
     state: present

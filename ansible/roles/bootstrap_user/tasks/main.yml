@@ -23,7 +23,7 @@
     shell: /bin/bash
     create_home: true
     state: present
-    groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
+    groups: "{{ 'sudo' if ansible_distribution == 'Ubuntu' else 'wheel' }}"
     append: true
     password: "{{ ansible_become_password | password_hash('sha512') }}"
     update_password: always
@@ -41,9 +41,9 @@
     key: "{{ root_authorized_keys.content | b64decode }}"
     state: present
 
-- name: Install uidmap (Debian) for rootless container support
+- name: Install uidmap (Ubuntu) for rootless container support
   become: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_distribution == 'Ubuntu'
   ansible.builtin.apt:
     name: uidmap
     state: present

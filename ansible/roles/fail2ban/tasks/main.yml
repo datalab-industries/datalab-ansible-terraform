@@ -1,7 +1,7 @@
 ---
-- name: Install fail2ban (Debian)
+- name: Install fail2ban (Ubuntu)
   become: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_distribution == 'Ubuntu'
   ansible.builtin.apt:
     pkg:
       - fail2ban
@@ -11,7 +11,7 @@
 
 - name: Update config file
   become: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_distribution == 'Ubuntu'
   ansible.builtin.template:
     src: etc/fail2ban/fail2ban.local.j2
     dest: /etc/fail2ban/fail2ban.local
@@ -22,7 +22,7 @@
 
 - name: Update configuration file - /etc/fail2ban/jail.local
   become: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_distribution == 'Ubuntu'
   ansible.builtin.template:
     src: etc/fail2ban/jail.local.j2
     dest: /etc/fail2ban/jail.local
@@ -33,7 +33,7 @@
 
 - name: Copy filters
   become: true
-  when: ansible_os_family == 'Debian'
+  when: ansible_distribution == 'Ubuntu'
   ansible.builtin.copy:
     src: "{{ item }}"
     dest: /etc/fail2ban/filter.d/
@@ -45,7 +45,7 @@
   notify: restart fail2ban
 
 - name: Start fail2ban (with systemd)
-  when: ansible_os_family == 'Debian'
+  when: ansible_distribution == 'Ubuntu'
   ansible.builtin.systemd:
     name: fail2ban
     state: started

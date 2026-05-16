@@ -7,21 +7,21 @@
 
 - name: Add Docker GPG apt Key
   become: true
-  when: docker_version.failed and ansible_os_family == 'Debian'
+  when: docker_version.failed and ansible_distribution == 'Ubuntu'
   ansible.builtin.apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
     state: present
 
 - name: Add Docker Repository
   become: true
-  when: docker_version.failed and ansible_os_family == 'Debian'
+  when: docker_version.failed and ansible_distribution == 'Ubuntu'
   ansible.builtin.apt_repository:
     repo: deb https://download.docker.com/linux/ubuntu focal stable
     state: present
 
 - name: Update apt and install docker-ce
   become: true
-  when: docker_version.failed and ansible_os_family == 'Debian'
+  when: docker_version.failed and ansible_distribution == 'Ubuntu'
   ansible.builtin.apt:
     name: docker-ce
     state: present

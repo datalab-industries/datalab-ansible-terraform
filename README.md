@@ -205,7 +205,7 @@ If completed successfully, the server should now be running a *datalab* instance
 
 #### Supported distributions
 
-The Ansible playbooks have been tested on Ubuntu (22.04, 24.04) and Red Hat Enterprise Linux 9.7, and will likely work on any Debian-based distribution that uses `apt` and `systemd`.
+The Ansible playbooks have been tested on Ubuntu (22.04, 24.04) and Red Hat Enterprise Linux 9.7, and will likely work on any Debian-based distribution that uses `apt` and `systemd` with minor modifications.
 
 As the *datalab* deployment itself is containerised, as long as Docker can be installed independently of the playbooks, then the deployment playbook should work on any distribution, but some features
 will not be available (e.g., automatic mounting of data disks, fail2ban, etc.) if the underlying OS is not supported by the playbooks.

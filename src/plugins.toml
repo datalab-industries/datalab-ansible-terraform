@@ -1,0 +1,15 @@
+# Plugin dependencies for this deployment.
+# Consumed by `invoke dev.install` during the API image build; see
+# https://docs.datalab-org.io/en/latest/plugins/ for the format.
+# Paths in [tool.uv.sources] are resolved relative to this file (i.e. the
+# datalab repo root on the remote), so local plugins synced from
+# ./src/plugins/<name>/ in this repo land at pydatalab/plugins/<name>/.
+
+dependencies = [
+    # "datalab-app-plugin-insitu",
+    # "datalab-app-plugin-private",
+]
+
+[tool.uv.sources]
+# datalab-app-plugin-insitu = { git = "https://github.com/datalab-org/datalab-app-plugin-insitu.git", rev = "v0.3.2" }
+# datalab-app-plugin-private = { path = "pydatalab/plugins/datalab-app-plugin-private", editable = true }

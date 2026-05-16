@@ -103,6 +103,8 @@
     profiles: prod
     services: database
     build: always
+    wait: true
+    wait_timeout: 300
 
 - name: Build and launch API container
   community.docker.docker_compose_v2:
@@ -110,6 +112,8 @@
     profiles: prod
     services: api
     build: always
+    wait: true
+    wait_timeout: 300
     env_files:
       - "{{ ansible_user_home_dir }}/datalab/pydatalab/.env"
       - "{{ ansible_user_home_dir }}/datalab/.env_version"
@@ -154,6 +158,8 @@
     profiles: prod
     services: app
     build: always
+    wait: true
+    wait_timeout: 300
     env_files:
       - "{{ ansible_user_home_dir }}/datalab/webapp/.env"
       - "{{ ansible_user_home_dir }}/datalab/.env_version"

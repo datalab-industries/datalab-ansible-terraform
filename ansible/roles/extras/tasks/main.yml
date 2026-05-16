@@ -27,3 +27,5 @@
       community.docker.docker_compose_v2:
         project_src: "{{ ansible_user_home_dir }}/extras"
         build: always
+        wait: true
+        wait_timeout: 300

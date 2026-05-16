@@ -60,7 +60,7 @@
     value: "{{ item.value }}"
     mode: '0644'
   loop:
-    - { option: upgrade_type, value: default }
+    - { option: upgrade_type, value: 'security'}
     - { option: apply_updates, value: 'yes' }
     - { option: reboot, value: when-needed }
 

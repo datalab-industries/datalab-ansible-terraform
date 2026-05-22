@@ -90,7 +90,7 @@ It also assumes that your local machine is running a Unix-like OS (Linux, WSL, m
 You can find more information on the requirements of the server and control node in the [Ansible documentation](https://docs.ansible.com/ansible/latest/getting_started/get_started_ansible.html).
 
 The first step is to clone this repository (or your fork/templated version) with submodules and then install Ansible and its dependencies.
-We recommend using [uv](https://astral.sh/uv) for this, as the included [Makefile] will use it to run the playbooks in a virtual
+We recommend using [uv](https://astral.sh/uv) for this, as the included [`Makefile`](Makefile) will use it to run the playbooks in a virtual
 environment.
 
 ```shell
@@ -245,7 +245,7 @@ especially if you have made any custom changes to the playbooks.
 Be sure to also commit the changes to your submodule so you know precisely which versions
 of the playbooks are running.
 
-The [`Makefile`] also contains a number of other useful commands, such as:
+The [`Makefile`](Makefile) also contains a number of other useful commands, such as:
 
 ```shell
 make vaults
@@ -291,7 +291,7 @@ To install plugins on a server deployed with this repository:
 #### Bitwarden integration
 
 Constantly entering the vault password for every attempted deployment can be a
-bit tedious, so by default, the `Makefile` will attempt to retrieve the vault
+bit tedious, so by default, the [`Makefile`](Makefile) will attempt to retrieve the vault
 password from a local [Bitwarden CLI](https://bitwarden.com/help/cli/) installation,
 which either only requires you to enter your Bitwarden password once per
 session, or can be configured to remain logged in.

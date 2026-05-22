@@ -10,7 +10,7 @@ else
 fi
 
 commit=$(cd src/datalab-ansible-terraform && git describe --tags)
-rsync --exclude vaults --exclude inventory.yml -avr "$TEMPLATE_ROOT/datalab-ansible-terraform/sync-ansible-upstream.sh" "$TEMPLATE_ROOT/datalab-ansible-terraform/Makefile" "$TEMPLATE_ROOT/datalab-ansible-terraform/.vault-pass.sh" "$TEMPLATE_ROOT/datalab-ansible-terraform/README.md" "$TEMPLATE_ROOT/datalab-ansible-terraform/requirements.txt" "$TEMPLATE_ROOT/datalab-ansible-terraform/ansible" .
+rsync --exclude vaults --exclude inventory.yml -avr "$TEMPLATE_ROOT/datalab-ansible-terraform/sync-ansible-upstream.sh" "$TEMPLATE_ROOT/datalab-ansible-terraform/Makefile" "$TEMPLATE_ROOT/datalab-ansible-terraform/.vault-pass.sh" "$TEMPLATE_ROOT/datalab-ansible-terraform/README.md" "$TEMPLATE_ROOT/datalab-ansible-terraform/requirements.*" "$TEMPLATE_ROOT/datalab-ansible-terraform/ansible" .
 chmod u+x ./.vault-pass.sh
 git add -p ansible
 git add src/datalab-ansible-terraform

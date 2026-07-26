@@ -93,6 +93,7 @@
 
 - name: Run docker system prune to clean up old containers and images
   community.docker.docker_prune:
+    builder_cache: true
     builder_cache_keep_storage: 5G
     images: true
     containers: true
@@ -166,6 +167,7 @@
 
 - name: Run docker system prune to clean up old containers and images
   community.docker.docker_prune:
+    builder_cache: true
     builder_cache_keep_storage: 5G
     images: true
     containers: true

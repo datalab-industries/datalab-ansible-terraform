@@ -292,7 +292,7 @@ To install plugins on a server deployed with this repository:
 
 Constantly entering the vault password for every attempted deployment can be a
 bit tedious, so by default, the [`Makefile`](Makefile) will attempt to retrieve the vault
-password from a local [Bitwarden CLI](https://bitwarden.com/help/cli/) installation,
+password from Bitwarden using the unofficial [rbw client](https://github.com/doy/rbw),
 which either only requires you to enter your Bitwarden password once per
 session, or can be configured to remain logged in.
 

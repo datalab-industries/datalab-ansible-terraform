@@ -100,6 +100,7 @@ git submodule update
 cd datalab-ansible-terraform
 uv venv --python 3.12
 uv pip install -r requirements.txt
+uv run ansible-galaxy collection install -r ansible/requirements.yml
 ```
 
 or alternatively,

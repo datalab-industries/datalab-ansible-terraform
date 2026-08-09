@@ -142,6 +142,7 @@ ungrouped:
       prometheus_remote_write_url: <your_prometheus_instance_url, e.g., https://grafana.datalab.industries/prometheus/api/v1/write>
       prometheus_user: <your_prometheus_username>
       prometheus_password: <your_prometheus_password>
+      datalab_stop_containers_before_build: <true to stop the running containers before building new images, freeing their RAM for the build at the cost of downtime; defaults to false>
       extras:   # (See discussion "Running additional containers" below)
         <service_name>:
           url: <service_url>

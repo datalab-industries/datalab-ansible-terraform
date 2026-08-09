@@ -98,21 +98,60 @@
     images: true
     containers: true
 
-- name: Build and launch database container
+# Plain `docker compose stop` rather than the docker_compose_v2 module:
+# state=stopped runs `up --no-start` first, which would create containers
+# (and build missing images) before the controlled build steps below.
+- name: Stop running containers to free memory for the build
+  when: datalab_stop_containers_before_build
+  ansible.builtin.command:
+    cmd: docker compose --profile prod stop
+    chdir: "{{ ansible_user_home_dir }}/datalab"
+  register: stop_result
+  changed_when: "'Stopped' in stop_result.stderr"
+
+# Build all images up front (sequentially, keeping peak memory use down) so
+# the running containers are only replaced once every build has succeeded.
+- name: Build database container image
+  ansible.builtin.command:
+    cmd: docker compose --profile prod build database
+    chdir: "{{ ansible_user_home_dir }}/datalab"
+  changed_when: true
+
+- name: Build API container image
+  ansible.builtin.command:
+    cmd: >-
+      docker compose
+      --env-file {{ ansible_user_home_dir }}/datalab/pydatalab/.env
+      --env-file {{ ansible_user_home_dir }}/datalab/.env_version
+      --profile prod build api
+    chdir: "{{ ansible_user_home_dir }}/datalab"
+  changed_when: true
+
+- name: Build app container image
+  ansible.builtin.command:
+    cmd: >-
+      docker compose
+      --env-file {{ ansible_user_home_dir }}/datalab/webapp/.env
+      --env-file {{ ansible_user_home_dir }}/datalab/.env_version
+      --profile prod build app
+    chdir: "{{ ansible_user_home_dir }}/datalab"
+  changed_when: true
+
+- name: Launch database container
   community.docker.docker_compose_v2:
     project_src: "{{ ansible_user_home_dir }}/datalab"
     profiles: prod
     services: database
-    build: always
+    build: never
     wait: true
     wait_timeout: 300
 
-- name: Build and launch API container
+- name: Launch API container
   community.docker.docker_compose_v2:
     project_src: "{{ ansible_user_home_dir }}/datalab"
     profiles: prod
     services: api
-    build: always
+    build: never
     wait: true
     wait_timeout: 300
     env_files:
@@ -153,12 +192,12 @@
     container_path: /root/.ssh/{{ item.path | basename }}
   loop: "{{ ssh_files_glob.files }}"
 
-- name: Build and launch app container
+- name: Launch app container
   community.docker.docker_compose_v2:
     project_src: "{{ ansible_user_home_dir }}/datalab"
     profiles: prod
     services: app
-    build: always
+    build: never
     wait: true
     wait_timeout: 300
     env_files:

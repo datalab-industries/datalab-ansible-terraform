@@ -1,2 +1,7 @@
 # defaults file for datalab
 ---
+# Stop the running datalab containers before building the new images, freeing
+# their RAM for the build at the cost of downtime while the build runs.
+# Enable on deployments that run out of memory when building alongside the
+# live containers.
+datalab_stop_containers_before_build: false

@@ -45,4 +45,5 @@
     name:
       - ca-certificates
       - python3-pip
+      - rsync
     state: present

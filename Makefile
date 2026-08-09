@@ -1,8 +1,10 @@
 # Makefile that passes the CLI args to ansible for the given playbook tags
+
+SHELL := /bin/bash
 RBW_AVAILABLE = $(shell command -v rbw 2> /dev/null)
 VAULT_PASS_ARGS = $(if $(RBW_AVAILABLE),--vault-password-file ./.vault-pass.sh, --ask-vault-pass)
 PLAYBOOK_CMD = uv run ansible-playbook $(VAULT_PASS_ARGS) -i ansible/inventory.yml ansible/playbook.yml
-VAULT_FILES := $(shell find ansible/vaults/ -type f) ansible/inventory.yml;
+VAULT_FILES := $(shell find ansible/vaults/ -type f) ansible/inventory.yml
 
 # Extract tags directly from YAML (faster but less accurate)
 VALID_TAGS := $(shell grep -r "tags:" ansible/playbook.yml | sed 's/.*tags://g' | tr -d '[]"' | tr ',' '\n' | tr -d ' ' | sort -u | grep -v '^$$')

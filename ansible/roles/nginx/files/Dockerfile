@@ -1,4 +1,4 @@
-FROM nginx:1.31.0
+FROM nginx:1.31.4
 
 WORKDIR /app
 

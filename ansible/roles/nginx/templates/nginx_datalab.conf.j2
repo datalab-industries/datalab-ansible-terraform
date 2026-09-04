@@ -1,3 +1,4 @@
+{% set api_nested = (api_host == app_host and api_root_path | length > 0) %}
 upstream datalab {
     server 127.0.0.1:8081;
 }
@@ -18,12 +19,50 @@ server {
   client_max_body_size 500M;
 
   # set the correct host(s) for your site
-  server_name {{ app_url }};
+  server_name {{ app_host }};
 
   location /503.html {
     root /app/static;
   }
 
+{% if api_nested %}
+  # The API shares this host, mounted under {{ api_root_path }}/;
+  # the API's own ROOT_PATH config must be set to match
+  location = {{ api_root_path }} {
+    return 301 {{ api_root_path }}/;
+  }
+
+  location {{ api_root_path }}/ {
+    client_max_body_size 5000M;
+    proxy_read_timeout 600s;
+    proxy_max_temp_file_size 10240m;
+
+    # Allow app to iframe files from API
+    add_header X-Frame-Options "ALLOW-FROM {{ app_host }}";
+
+    set $maintenance 0;
+    if (-f /etc/nginx/static/datalab_maintenance_on) {
+       set $maintenance 1;
+    }
+    if ($internal != 1) {
+      set $maintenance "${maintenance}1";
+    }
+    if ($maintenance = 11) {
+      return 503;
+    }
+
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $http_host;
+    # we don't want nginx trying to do something clever with
+    # redirects, we set the Host: header above already.
+    proxy_redirect off;
+    # the root path is passed through untouched: the API serves its own
+    # routes under it via the ROOT_PATH setting in its config
+    proxy_pass http://pydatalab;
+  }
+
+{% endif %}
   location / {
 
     set $maintenance 0;
@@ -49,6 +88,7 @@ server {
   error_page 503 /503.html;
 
 }
+{% if not api_nested %}
 
 # API server
 server {
@@ -59,10 +99,10 @@ server {
   proxy_max_temp_file_size 10240m;
 
   # set the correct host(s) for your site
-  server_name {{ api_url }};
+  server_name {{ api_host }};
 
   # Allow app to iframe files from API
-  add_header X-Frame-Options "ALLOW-FROM {{ app_url }}";
+  add_header X-Frame-Options "ALLOW-FROM {{ app_host }}";
 
   location /503.html {
     root /app/static;
@@ -90,3 +130,4 @@ server {
   }
   error_page 503 /503.html;
 }
+{% endif %}

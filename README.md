@@ -187,6 +187,15 @@ If you are using your own domain (configured via `app_url` and `api_url` in the 
 then you will need to update your domain's DNS settings so that your subdomains point to the IP
 of the server as given in your inventory file.
 
+The API can either be served from its own subdomain (e.g. `app_url: example.org` with
+`api_url: api.example.org`), or mounted under a root path on the
+same host as the app (e.g. `api_url: example.org/api`).
+In the latter case, only one certificate name is requested, and nginx serves the API as a
+sublocation of the app's server block rather than as a separate server.
+The root path is proxied through untouched, so the API must be told to serve its own
+routes under it: set `ROOT_PATH` in `./vaults/datalab/prod_config.json` to the matching
+path (e.g. `/api`), and `VUE_APP_API_URL` in `./vaults/datalab/.env` to the full URL.
+
 Once all these configuration steps have been performed, we can try to execute
 the Ansible "playbook" that will install all the pre-requisite services, build
 the Docker containers as configured, connect them via Nginx and add hardening

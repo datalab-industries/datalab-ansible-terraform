@@ -1,5 +1,5 @@
-ssl_certificate /etc/letsencrypt/live/{{ app_url }}/fullchain.pem;
-ssl_certificate_key /etc/letsencrypt/live/{{ app_url }}/privkey.pem;
+ssl_certificate /etc/letsencrypt/live/{{ app_host }}/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/{{ app_host }}/privkey.pem;
 
 ssl_session_cache shared:le_nginx_SSL:10m;
 ssl_session_timeout 1440m;

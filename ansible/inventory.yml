@@ -6,6 +6,8 @@ ungrouped:
       ansible_user: <remote_username>
       ansible_become_password: <sudo_password>
       datalab_prefix: <desired_datalab_prefix (used for monitoring labels)>
+      # may either be its own host, or the app's host with a root path
+      # (e.g. <app_url>/api), in which case nginx serves it as a sublocation
       api_url: <desired_datalab_api_url>
       app_url: <desired_datalab_app_url>
       mount_data_disk: <disk device file location, e.g., /dev/sda, /dev/sdb or otherwise>

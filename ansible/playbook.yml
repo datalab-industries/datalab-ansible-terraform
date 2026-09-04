@@ -28,6 +28,14 @@
   vars:
     # root behaves differently than other users; set home dir accordingly
     ansible_user_home_dir: "{{ '/' + ansible_user if ansible_user == 'root' else '/home/' + ansible_user }}"
+    # app_url/api_url may carry an optional scheme and, for api_url, a root
+    # path (e.g. example.org/api). Split them so that certificates and
+    # server_name directives only ever see the bare hostname, and so that
+    # nginx knows whether the API needs its own server block or a location
+    # nested inside the app's.
+    app_host: "{{ app_url | regex_replace('^https?://', '') | regex_replace('/.*$', '') }}"
+    api_host: "{{ api_url | regex_replace('^https?://', '') | regex_replace('/.*$', '') }}"
+    api_root_path: "{{ api_url | regex_replace('^https?://[^/]+', '') | regex_replace('^[^/]+', '') | regex_replace('/+$', '') }}"
   pre_tasks:
     # Drop any SSH control socket from the bootstrap play so this play
     # connects fresh as the (possibly different) inventory ansible_user.

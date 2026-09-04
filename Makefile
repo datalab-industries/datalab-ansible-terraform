@@ -19,7 +19,7 @@ inventory:
 	uv run ansible-vault edit $(VAULT_PASS_ARGS) ansible/inventory.yml
 
 install-ansible: requirements.txt
-	uv venv --python=3.13; uv pip install -r requirements.txt
+	uv venv --python=3.13; uv pip install -r requirements.txt; uv run ansible-galaxy collection install -r requirements.yml
 
 encrypt-vaults:
 	@echo "Encrypting all vault files in ansible/vaults/ directory: $(VAULT_FILES)";

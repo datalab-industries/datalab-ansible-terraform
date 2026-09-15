@@ -1,0 +1,42 @@
+# Documentation for the datalab-ansible-terraform template.
+# Build with `make docs-build` or preview with `make docs`.
+#
+# Files in `docs/` and this config are overwritten by `sync-ansible-upstream.sh`.
+# Deployment-specific documentation belongs in `CHECKLIST.md` and `deployment-notes/`,
+# which are linked into the rendered site but never synced from upstream.
+
+[project]
+site_name = "Deploying datalab"
+repo_url = "https://github.com/datalab-industries/datalab-ansible-terraform"
+docs_dir = "docs"
+site_dir = "site"
+nav = [
+  { "Overview" = "index.md" },
+  { "Installation" = "installation.md" },
+  { "Configuration" = "configuration.md" },
+  { "Deploying and updating" = "deployment.md" },
+  { "Features" = [
+    { "Backups" = "backups.md" },
+    { "Monitoring" = "monitoring.md" },
+    { "Emails for failed cron jobs" = "cron-email.md" },
+    { "ChemInventory syncing" = "cheminventory.md" },
+    { "Plugins" = "plugins.md" },
+    { "Additional containers" = "extras.md" },
+    { "Rootless Docker and managed hosts" = "managed-hosts.md" },
+    { "Vault password with Bitwarden" = "bitwarden.md" },
+  ] },
+  { "This deployment" = [
+    { "About deployment docs" = "project-docs.md" },
+    { "Checklist" = "checklist.md" },
+    { "Deployment notes" = "deployment-notes/index.md" },
+  ] },
+  { "Cloud provisioning (legacy)" = "terraform.md" },
+]
+
+[project.theme]
+features = [
+  "content.code.copy",
+  "navigation.sections",
+  "navigation.footer",
+  "search.highlight",
+]

@@ -8,11 +8,25 @@ if [ -n "${DATALAB_ANSIBLE_TEMPLATE_DIR:-}" ]; then
 else
     TEMPLATE_ROOT="src"
 fi
+UPSTREAM="$TEMPLATE_ROOT/datalab-ansible-terraform"
 
 commit=$(cd src/datalab-ansible-terraform && git describe --tags)
-rsync --exclude vaults --exclude inventory.yml -avr "$TEMPLATE_ROOT/datalab-ansible-terraform/sync-ansible-upstream.sh" "$TEMPLATE_ROOT/datalab-ansible-terraform/Makefile" "$TEMPLATE_ROOT/datalab-ansible-terraform/.vault-pass.sh" "$TEMPLATE_ROOT/datalab-ansible-terraform/README.md" "$TEMPLATE_ROOT/datalab-ansible-terraform/requirements.in" "$TEMPLATE_ROOT/datalab-ansible-terraform/requirements.txt" "$TEMPLATE_ROOT/datalab-ansible-terraform/ansible" .
+
+# Files owned by the upstream template.
+# Deployment-specific files (vaults, inventory, CHECKLIST.md, deployment-notes/) are never synced.
+rsync --exclude vaults --exclude inventory.yml -avr "$UPSTREAM/sync-ansible-upstream.sh" "$UPSTREAM/Makefile" "$UPSTREAM/.vault-pass.sh" "$UPSTREAM/README.md" "$UPSTREAM/requirements.in" "$UPSTREAM/requirements.txt" "$UPSTREAM/zensical.toml" "$UPSTREAM/ansible" .
+# docs/ is fully owned by upstream, so also remove pages that were removed upstream.
+# docs/deployment-notes is generated locally by `make docs` and is left alone.
+rsync --delete --exclude deployment-notes -avr "$UPSTREAM/docs/" docs/
 chmod u+x ./.vault-pass.sh
+
+# Ignore built docs
+for pattern in "site/" "docs/deployment-notes/"; do
+    grep -qxF "$pattern" .gitignore 2>/dev/null || echo "$pattern" >> .gitignore
+done
+
 git add -p ansible
-git add src/datalab-ansible-terraform
 git add $(git ls-files ansible --others --exclude-standard)
-git commit ansible -p -m "Sync with upstream definitions from datalab-ansible-terraform $commit"
+git add src/datalab-ansible-terraform docs zensical.toml .gitignore
+git commit -m "Sync with upstream definitions from datalab-ansible-terraform $commit"
+echo "Review and commit any remaining changes to Makefile, README.md, requirements.* and .vault-pass.sh separately."

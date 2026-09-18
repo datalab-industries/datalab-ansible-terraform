@@ -23,7 +23,17 @@
         delete: false
       failed_when: false
 
+    - name: Give docker user read access to synced extras files
+      when: docker_become and docker_shared_group | length > 0
+      ansible.builtin.file:
+        path: "{{ ansible_user_home_dir }}/extras"
+        group: "{{ docker_shared_group }}"
+        mode: g+rX
+        recurse: true
+
     - name: Build and launch any extras containers
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
       community.docker.docker_compose_v2:
         project_src: "{{ ansible_user_home_dir }}/extras"
         build: always

@@ -27,9 +27,15 @@ borgmatic_timer_minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
 borg_install_method: package
 borg_require_epel: "{{ ansible_os_family == 'RedHat' and ansible_distribution != 'Fedora' }}"
 
+# Directory for borgmatic config, ssh keys and scripts, mounted into the
+# borgmatic container
+borg_config_dir: "{{ docker_user_home_dir }}/borgmatic"
+
 # Host directory read by node_exporter's textfile collector. The borgmatic
 # container bind-mounts this to /metrics and writes status metrics there.
-borg_textfile_collector_path: /var/lib/node_exporter/textfile_collector
+# Rootless containers cannot write to system directories, so use one owned by
+# the docker user instead.
+borg_textfile_collector_path: "{{ (borg_config_dir ~ '/metrics') if docker_rootless else '/var/lib/node_exporter/textfile_collector' }}"
 
 borgmatic_hooks:
   before_backup:

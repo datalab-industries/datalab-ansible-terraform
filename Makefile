@@ -34,6 +34,22 @@ vaults:
 		fi; \
 	done
 
+# Mirror deployment-notes/ into docs/ as file symlinks, as zensical does not follow directory symlinks
+docs-notes:
+	@rm -rf docs/deployment-notes
+	@cd deployment-notes && find . -type f | while read -r f; do \
+		mkdir -p "$(CURDIR)/docs/deployment-notes/$$(dirname "$$f")"; \
+		ln -s "$(CURDIR)/deployment-notes/$$f" "$(CURDIR)/docs/deployment-notes/$$f"; \
+	done
+
+ZENSICAL = uvx zensical@0.0.62
+
+docs: docs-notes
+	$(ZENSICAL) serve
+
+docs-build: docs-notes
+	$(ZENSICAL) build --clean
+
 %:
 	@if echo "$(VALID_TAGS)" | grep -wq "$@"; then \
 		echo "Running playbook with tag: $@"; \
@@ -45,4 +61,4 @@ vaults:
 	fi
 
 
-.PHONY: list
+.PHONY: list docs docs-notes docs-build

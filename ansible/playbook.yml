@@ -12,7 +12,9 @@
 
 - name: Bootstrap non-root ansible_user
   hosts: all
-  gather_facts: true
+  # Facts are gathered below, so that hosts without a managed system are
+  # skipped before trying to connect as root
+  gather_facts: false
   tags: [setup, bootstrap]
   # Connect as root to create the target ansible_user before later plays
   # connect as it. No-op when target_ansible_user is already root. Play
@@ -20,6 +22,13 @@
   vars:
     ansible_user: root
     ansible_ssh_user: root
+  pre_tasks:
+    - name: Skip bootstrap when the system is managed externally
+      ansible.builtin.meta: end_host
+      when: not manage_system
+
+    - name: Gather facts
+      ansible.builtin.setup:
   roles:
     - role: bootstrap_user
 
@@ -36,27 +45,47 @@
     app_host: "{{ app_url | regex_replace('^https?://', '') | regex_replace('/.*$', '') }}"
     api_host: "{{ api_url | regex_replace('^https?://', '') | regex_replace('/.*$', '') }}"
     api_root_path: "{{ api_url | regex_replace('^https?://[^/]+', '') | regex_replace('^[^/]+', '') | regex_replace('/+$', '') }}"
+  # Point all docker modules and CLI calls at the configured daemon; see
+  # roles/docker/defaults/main.yml
+  environment:
+    DOCKER_HOST: "{{ docker_host }}"
   pre_tasks:
     # Drop any SSH control socket from the bootstrap play so this play
     # connects fresh as the (possibly different) inventory ansible_user.
     - name: Reset SSH connection after bootstrap play
       ansible.builtin.meta: reset_connection
+
+    - name: Look up docker user
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ docker_user }}"
+      tags: [always]
+
+    - name: Set docker user facts
+      ansible.builtin.set_fact:
+        docker_user_uid: "{{ ansible_facts.getent_passwd[docker_user][1] }}"
+        docker_user_home_dir: "{{ ansible_facts.getent_passwd[docker_user][4] }}"
+      tags: [always]
   roles:
     - role: preflight
       name: Check if the system is ready for the playbook
       tags: [setup]
+      when: manage_system
     - role: setup
       name: Run OS and disk set up tasks
       tags: [setup]
+      when: manage_system
     - role: docker
       name: Install and configure Docker
       tags: [setup]
     - role: fail2ban
       name: Install and configure fail2ban
       tags: [setup]
+      when: manage_system
     - role: ssh_hardening
       name: Disable password SSH and harden sshd
       tags: [setup, ssh]
+      when: manage_system
     - role: ssl_first_run
       name: Run stripped down nginx and SSL for the first time
       tags: [setup, ssl]
@@ -83,3 +112,4 @@
         apply:
           tags: [maintenance]
       tags: [maintenance]
+      when: manage_system

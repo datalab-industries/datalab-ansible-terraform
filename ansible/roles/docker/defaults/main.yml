@@ -1,0 +1,36 @@
+---
+# Settings shared by all roles in the playbook, rather than just this one.
+# These are defaults: set any of them per host in the inventory to override.
+
+# Whether containers are run by a rootless docker daemon rather than the
+# system-wide one. Rootless daemons must be installed and running before the
+# playbook is run; the docker role will not install or configure them.
+docker_rootless: false
+
+# The user that runs docker commands. For rootful docker this is the ansible
+# user (added to the docker group); for rootless docker it is the user that owns
+# the daemon, which ansible will become for any docker-related tasks.
+docker_user: "{{ ansible_user }}"
+
+# Whether docker-related tasks need to become docker_user
+docker_become: "{{ docker_user != ansible_user }}"
+
+# The daemon socket; docker_user_uid is looked up at the start of the play
+docker_host: "{{ ('unix:///run/user/' ~ (docker_user_uid | default('')) ~ '/docker.sock') if docker_rootless else 'unix:///var/run/docker.sock' }}"
+
+# PATH for cron jobs that call docker. Cron only searches /usr/bin:/bin, but
+# rootless installs often put the CLI in ~/bin or /usr/local/bin
+docker_cron_path: "{{ docker_user_home_dir }}/bin:/usr/local/bin:/usr/bin:/bin"
+
+# A group shared by ansible_user and docker_user. When set, and the two users
+# differ, files synced by ansible (e.g., build contexts, env files) are made
+# readable by this group so that docker_user can use them. docker_user also
+# needs to be able to traverse the ansible user's home directory.
+docker_shared_group: ""
+# Whether the playbook manages the host system: bootstrapping the ansible user
+# as root, mounting the data disk, installing system packages and docker,
+# configuring fail2ban and sshd, and keeping packages up-to-date.
+# Set to false on hosts where these are managed externally (e.g., when there is
+# no root access), in which case docker and the python docker SDK must already be
+# installed, and only the datalab services themselves will be deployed.
+manage_system: true

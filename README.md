@@ -143,6 +143,9 @@ ungrouped:
       prometheus_remote_write_url: <your_prometheus_instance_url, e.g., https://grafana.datalab.industries/prometheus/api/v1/write>
       prometheus_user: <your_prometheus_username>
       prometheus_password: <your_prometheus_password>
+      manage_system: <whether to install system packages and docker, defaults to true (see "Rootless docker and externally managed hosts" below)>
+      docker_rootless: <whether to use a rootless docker daemon, defaults to false>
+      docker_user: <the user that runs docker commands, defaults to ansible_user>
       extras:   # (See discussion "Running additional containers" below)
         <service_name>:
           url: <service_url>
@@ -225,6 +228,43 @@ will not be available (e.g., automatic mounting of data disks, fail2ban, etc.) i
 If you need to support for a specific Linux distribution, please raise an
 issue on GitHub at [datalab-industries/datalab-ansible-terraform](https://github.com/datalab-industries/datalab-ansible-terraform/issues).
 Official support will not be provided for Windows or macOS as target servers.
+
+#### Rootless docker and externally managed hosts
+
+By default, the playbook manages the whole server: it bootstraps the `ansible_user` as root,
+installs system packages and Docker, and configures fail2ban and sshd.
+On servers managed by someone else (e.g., a university IT service), you may not have root
+access, and Docker may instead be provided as a [rootless daemon](https://docs.docker.com/engine/security/rootless/)
+owned by a separate user.
+
+Both cases can be configured in the inventory:
+
+```yaml
+manage_system: false      # assume system packages and docker are already installed
+docker_rootless: true     # use a rootless docker daemon...
+docker_user: docker       # ...owned by this user, which ansible_user must be able to become
+docker_shared_group: datalab  # a group containing both users, used to share synced files
+# docker_host: unix:///run/user/<uid>/docker.sock  # (optional) defaults to the docker_user's rootless socket
+```
+
+With `manage_system: false`, the playbook skips bootstrapping, disk mounting, package installation,
+fail2ban, sshd hardening and upgrades, and only checks that the configured Docker daemon is reachable
+before deploying the *datalab* services.
+
+With `docker_rootless: true`, all Docker commands (including scheduled cron jobs) are run as
+`docker_user` against its daemon.
+In this case, the server must already provide:
+
+- a rootless daemon for `docker_user` that keeps running without a login session (i.e., with lingering enabled),
+- the ability for `ansible_user` to become `docker_user` (e.g., via sudo), and for `docker_user` to use cron,
+- read access for `docker_user` to the `ansible_user`'s home directory (via `docker_shared_group`),
+- read and write access for `docker_user` to `/data`,
+- permission to bind the ports used by nginx (80 and 443), e.g., via the `net.ipv4.ip_unprivileged_port_start` sysctl.
+
+Borg configuration and metrics are stored in `docker_user`'s home directory, so that the backup
+container can read and write them.
+If the server already runs its own exporters on the monitoring ports, these can be changed with
+`monitoring_node_exporter_port`, `monitoring_prometheus_port` and `monitoring_cadvisor_port`.
 
 #### Keeping things up to date
 
@@ -385,9 +425,9 @@ For example, this is used for simple services in the central *datalab* organisat
 
 For more advanced monitoring, the Ansible playbooks contain a role tagged as
 `monitoring`, which will install and configure metrics harvesters using
-[Prometheus](https://prometheus.io/) (with [Node Exporter](https://github.com/prometheus/node_exporter) and
-[cAdvisor](https://github.com/google/cadvisor)) to monitor the host system and
-containers.
+[Prometheus](https://prometheus.io/) (with [Node Exporter](https://github.com/prometheus/node_exporter)) to monitor the host system.
+Per-container metrics from [cAdvisor](https://github.com/google/cadvisor) can also be enabled by setting
+`monitoring_cadvisor: true`, though note that this uses noticeably more CPU.
 
 To make use of this monitoring, you will need your own [Grafana instance](https://grafana.com/oss/grafana) (also running Prometheus as a harvester of the remote metrics) to visualise the metrics.
 

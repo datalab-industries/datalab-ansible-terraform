@@ -1,13 +1,19 @@
 ---
 - name: Create a Docker volume for certbot-conf (mounted to /etc/letsencrypt)
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
   community.docker.docker_volume:
     name: certbot-conf
 
 - name: Create a Docker volume for certbot-www (mounted to /var/www/certbot)
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
   community.docker.docker_volume:
     name: certbot-www
 
 - name: Build/pull certbot image
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
   community.docker.docker_image:
     name: certbot/certbot:latest
     source: pull
@@ -23,15 +29,25 @@
   ansible.builtin.file:
     state: directory
     path: "{{ ansible_user_home_dir }}/nginx/rendered"
-    mode: "0744"
+    mode: "0755"
 
 - name: Render templated certbot config
   ansible.builtin.template:
     src: certbot-docker.sh.j2
     dest: "{{ ansible_user_home_dir }}/nginx/rendered/certbot-docker.sh"
-    mode: "0744"
+    mode: "0755"
+
+- name: Give docker user read access to synced nginx files
+  when: docker_become and docker_shared_group | length > 0
+  ansible.builtin.file:
+    path: "{{ ansible_user_home_dir }}/nginx"
+    group: "{{ docker_shared_group }}"
+    mode: g+rX
+    recurse: true
 
 - name: Build nginx image
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
   community.docker.docker_image:
     name: datalab-nginx
     source: build
@@ -41,6 +57,8 @@
       path: "{{ ansible_user_home_dir }}/nginx"
 
 - name: Launch nginx container without services
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
   community.docker.docker_container:
     name: datalab-nginx
     image: datalab-nginx
@@ -51,6 +69,8 @@
     restart_policy: false
 
 - name: Launch certbot container
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
   community.docker.docker_container:
     name: datalab-certbot
     image: certbot/certbot:latest
@@ -64,11 +84,19 @@
     entrypoint:
       - /opt/certbot-docker.sh
 
+- name: Remove SSL renewal from ansible user crontab
+  when: docker_become
+  ansible.builtin.cron:
+    name: SSL renewal with certbot
+    state: absent
+
 - name: Scheduled SSL renewal with certbot
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
   ansible.builtin.cron:
     name: SSL renewal with certbot
     minute: "38"
     hour: "10"
     weekday: "2"
     month: "*"
-    job: docker run --rm -v certbot-www:/var/www/certbot -v certbot-conf:/etc/letsencrypt certbot/certbot:latest renew && docker exec datalab-nginx nginx -s reload  # noqa: line-length
+    job: export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; docker run --rm -v certbot-www:/var/www/certbot -v certbot-conf:/etc/letsencrypt certbot/certbot:latest renew && docker exec datalab-nginx nginx -s reload  # noqa: line-length

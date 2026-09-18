@@ -11,73 +11,101 @@
     - borg_repository is defined
     - borg_encryption_passphrase is defined
     - borg_remote_path is defined
+  vars:
+    # Rootful containers run as root and can read root-owned files; rootless
+    # ones run as docker_user, so it must own everything they read or write
+    borg_become: "{{ docker_become if docker_rootless else true }}"
+    borg_become_user: "{{ docker_user if docker_rootless else 'root' }}"
   block:
-
     - name: Ensure node_exporter textfile collector directory exists
-      become: true
+      become: "{{ borg_become }}"
+      become_user: "{{ borg_become_user }}"
       ansible.builtin.file:
         path: "{{ borg_textfile_collector_path }}"
         state: directory
         mode: "0755"
 
     - name: Ensure borgmatic config directory exists
+      become: "{{ docker_rootless and docker_become }}"
+      become_user: "{{ docker_user }}"
       ansible.builtin.file:
-        path: "{{ ansible_user_home_dir }}/borgmatic"
+        path: "{{ borg_config_dir }}"
         state: directory
         mode: "0755"
 
     - name: Ensure borg cache directory exists
+      become: "{{ docker_rootless and docker_become }}"
+      become_user: "{{ docker_user }}"
       ansible.builtin.file:
         path: "{{ borg_cache_dir }}"
         state: directory
         mode: "0700"
 
     - name: Copy metrics script
+      become: "{{ docker_rootless and docker_become }}"
+      become_user: "{{ docker_user }}"
       ansible.builtin.copy:
         src: write-metrics.py
-        dest: "{{ ansible_user_home_dir }}/borgmatic/write-metrics.py"
+        dest: "{{ borg_config_dir }}/write-metrics.py"
         mode: "0755"
 
     - name: Sync local ssh config vault remote
-      when: ssh_config.stat.exists
-      become: true
+      become: "{{ borg_become }}"
+      become_user: "{{ borg_become_user }}"
       ansible.builtin.copy:
         src: "{{ playbook_dir }}/vaults/borg/.ssh/"
-        dest: "{{ ansible_user_home_dir }}/borgmatic/.ssh"
+        dest: "{{ borg_config_dir }}/.ssh"
         mode: "0700"
-        owner: root
-        group: root
+        owner: "{{ omit if docker_rootless else 'root' }}"
+        group: "{{ omit if docker_rootless else 'root' }}"
 
     - name: Render Borgmatic configuration
-      become: true
+      become: "{{ borg_become }}"
+      become_user: "{{ borg_become_user }}"
       ansible.builtin.template:
         src: config.yaml.j2
-        dest: "{{ ansible_user_home_dir }}/borgmatic/config.yaml"
+        dest: "{{ borg_config_dir }}/config.yaml"
         mode: "0600"
-        owner: "{{ ansible_ssh_user }}"
+        owner: "{{ omit if docker_rootless else ansible_ssh_user }}"
 
     - name: Pull borgmatic image
-      become: true
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
       community.docker.docker_image:
         name: ghcr.io/borgmatic-collective/borgmatic:2
         source: pull
         state: present
 
+    # Run in the foreground so failures surface; borgmatic skips creation and
+    # says so if the repository already exists. The image's init entrypoint is
+    # bypassed, as it starts crond and exits 143 when that is killed on shutdown
     - name: Create borg repository if it does not exist
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
       community.docker.docker_container:
         image: ghcr.io/borgmatic-collective/borgmatic:2
-        name: datalab-borgmatic
+        name: datalab-borgmatic-init
         volumes:
-          - "{{ ansible_user_home_dir }}/borgmatic/config.yaml:/etc/borgmatic.d/config.yaml"
-          - "{{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh"
-          - /data:/data
-        command: borgmatic init --encryption=repokey
-        auto_remove: true
+          - "{{ borg_config_dir }}/config.yaml:/etc/borgmatic.d/config.yaml:ro"
+          - "{{ borg_config_dir }}/.ssh:/root/.ssh:ro"
+        entrypoint: [borgmatic]
+        command: repo-create --encryption repokey -v 1
+        detach: false
+        cleanup: true
+      register: borg_repo_create
+      changed_when: "'Repository already exists' not in (borg_repo_create.container.Output | default(''))"
+
+    - name: Remove borgmatic cron job from ansible user crontab
+      when: docker_become
+      ansible.builtin.cron:
+        name: borgmatic
+        state: absent
 
     - name: Add Cron job for borgmatic
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
       ansible.builtin.cron:
         name: borgmatic
         hour: "2"
         minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
-        user: "{{ ansible_user }}"
-        job: timeout 6h docker run --rm --network datalab_backend --name datalab-borgmatic -v {{ ansible_user_home_dir }}/borgmatic/config.yaml:/etc/borgmatic.d/config.yaml -v {{ ansible_user_home_dir }}/borgmatic/.ssh:/root/.ssh -v /data:/data -v {{ borg_cache_dir }}:/root/.cache/borg -v {{ ansible_user_home_dir }}/borgmatic:/borgmatic:ro -v {{ borg_textfile_collector_path }}:/metrics ghcr.io/borgmatic-collective/borgmatic:2 borgmatic -v 1 # noqa: line-length
+        job: PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }} timeout 6h docker run --rm --network datalab_backend --name datalab-borgmatic -v {{ borg_config_dir }}/config.yaml:/etc/borgmatic.d/config.yaml -v {{ borg_config_dir }}/.ssh:/root/.ssh -v /data:/data -v {{ borg_cache_dir }}:/root/.cache/borg -v {{ borg_config_dir }}:/borgmatic:ro -v {{ borg_textfile_collector_path }}:/metrics ghcr.io/borgmatic-collective/borgmatic:2 borgmatic -v 1 # noqa: line-length

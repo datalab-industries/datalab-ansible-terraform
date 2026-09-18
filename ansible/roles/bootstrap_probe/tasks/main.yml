@@ -1,0 +1,25 @@
+---
+# Probes whether the inventory ansible_user can already log in over SSH.
+# Stashes the target user as `target_ansible_user` and sets
+# `bootstrap_needed` so the bootstrap play can skip itself on hosts
+# where sshd has been hardened to deny root login.
+
+# set_fact is local, so this is safe even if the user can't yet log in.
+- name: Stash target ansible_user as a host fact
+  ansible.builtin.set_fact:
+    target_ansible_user: "{{ ansible_user }}"
+
+- name: Probe SSH connectivity as target ansible_user
+  ansible.builtin.wait_for_connection:
+    timeout: 10
+  register: target_user_probe
+  ignore_errors: true
+  ignore_unreachable: true
+
+- name: Record whether bootstrap is needed
+  ansible.builtin.set_fact:
+    bootstrap_needed: "{{ target_user_probe is not succeeded }}"
+
+# Drop the control socket so the next play reconnects fresh as root.
+- name: Reset SSH connection after probe
+  ansible.builtin.meta: reset_connection

@@ -29,7 +29,17 @@
     dest: "{{ ansible_user_home_dir }}/nginx/rendered/nginx_ssl.conf"
     mode: "0644"
 
+- name: Give docker user read access to synced nginx files
+  when: docker_become and docker_shared_group | length > 0
+  ansible.builtin.file:
+    path: "{{ ansible_user_home_dir }}/nginx"
+    group: "{{ docker_shared_group }}"
+    mode: g+rX
+    recurse: true
+
 - name: Build nginx image
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
   community.docker.docker_image:
     name: datalab-nginx
     source: build
@@ -40,6 +50,8 @@
       pull: true
 
 - name: Launch nginx container
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
   community.docker.docker_container:
     name: datalab-nginx
     image: datalab-nginx

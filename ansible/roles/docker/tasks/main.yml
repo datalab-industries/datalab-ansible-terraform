@@ -1,89 +1,104 @@
 ---
-- name: Check whether Docker is already installed
+# Rootless daemons, and daemons on externally managed systems, are set up
+# outside of this playbook, so just check that docker_user can reach them
+- name: Check docker daemon is reachable
+  when: docker_rootless or not manage_system
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
   ansible.builtin.command:
-    cmd: docker --version # noqa: no-changed-when
-  register: docker_version
-  ignore_errors: true
+    cmd: docker info --format {% raw %}'{{ .ServerVersion }}'{% endraw %}
+  changed_when: false
+  check_mode: false
 
-- name: Add Docker GPG apt Key
-  become: true
-  when: docker_version.failed and ansible_distribution == 'Ubuntu'
-  ansible.builtin.apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
-    state: present
+- name: Install and configure system docker daemon
+  when: manage_system and not docker_rootless
+  block:
+    - name: Check whether Docker is already installed
+      ansible.builtin.command:
+        cmd: docker --version # noqa: no-changed-when
+      register: docker_version
+      ignore_errors: true
 
-- name: Add Docker Repository
-  become: true
-  when: docker_version.failed and ansible_distribution == 'Ubuntu'
-  ansible.builtin.apt_repository:
-    repo: deb https://download.docker.com/linux/ubuntu focal stable
-    state: present
+    - name: Add Docker GPG apt Key
+      become: true
+      when: docker_version.failed and ansible_distribution == 'Ubuntu'
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
 
-- name: Update apt and install docker-ce
-  become: true
-  when: docker_version.failed and ansible_distribution == 'Ubuntu'
-  ansible.builtin.apt:
-    name: docker-ce
-    state: present
-    update_cache: true
+    - name: Add Docker Repository
+      become: true
+      when: docker_version.failed and ansible_distribution == 'Ubuntu'
+      ansible.builtin.apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
 
-- name: Add Docker CE repo (RedHat)
-  become: true
-  when: docker_version.failed and ansible_os_family == 'RedHat'
-  ansible.builtin.yum_repository:
-    name: docker-ce
-    description: Docker CE Stable
-    baseurl: https://download.docker.com/linux/rhel/$releasever/$basearch/stable
-    gpgcheck: true
-    gpgkey: https://download.docker.com/linux/rhel/gpg
-    state: present
+    - name: Update apt and install docker-ce
+      become: true
+      when: docker_version.failed and ansible_distribution == 'Ubuntu'
+      ansible.builtin.apt:
+        name: docker-ce
+        state: present
+        update_cache: true
 
-- name: Install container-selinux and docker-ce (RedHat)
-  become: true
-  when: docker_version.failed and ansible_os_family == 'RedHat'
-  ansible.builtin.dnf:
-    name:
-      - container-selinux
-      - docker-ce
-    state: present
+    - name: Add Docker CE repo (RedHat)
+      become: true
+      when: docker_version.failed and ansible_os_family == 'RedHat'
+      ansible.builtin.yum_repository:
+        name: docker-ce
+        description: Docker CE Stable
+        baseurl: https://download.docker.com/linux/rhel/$releasever/$basearch/stable
+        gpgcheck: true
+        gpgkey: https://download.docker.com/linux/rhel/gpg
+        state: present
 
-- name: Enable and start Docker service
-  become: true
-  ansible.builtin.systemd:
-    name: docker
-    enabled: true
-    state: started
+    - name: Install container-selinux and docker-ce (RedHat)
+      become: true
+      when: docker_version.failed and ansible_os_family == 'RedHat'
+      ansible.builtin.dnf:
+        name:
+          - container-selinux
+          - docker-ce
+        state: present
 
-- name: Install Docker Module for Python
-  when: docker_version.failed
-  ansible.builtin.pip:
-    name: docker
-    break_system_packages: true
+    - name: Enable and start Docker service
+      become: true
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
 
-- name: Configure Docker daemon log rotation
-  become: true
-  ansible.builtin.copy:
-    dest: /etc/docker/daemon.json
-    content: |
-      {
-        "log-driver": "json-file",
-        "log-opts": {
-          "max-size": "10m",
-          "max-file": "3"
-        }
-      }
-    owner: root
-    group: root
-    mode: "0644"
-  notify: Restart Docker
+    - name: Install Docker Module for Python
+      when: docker_version.failed
+      ansible.builtin.pip:
+        name: docker
+        break_system_packages: true
 
-- name: Add user '{{ ansible_ssh_user }}' to docker group
-  become: true
-  ansible.builtin.user:
-    name: "{{ ansible_ssh_user }}"
-    groups: docker
-    append: true
-    state: present
+    - name: Configure Docker daemon log rotation
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          }
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart Docker
 
+    - name: Add user '{{ ansible_ssh_user }}' to docker group
+      become: true
+      ansible.builtin.user:
+        name: "{{ ansible_ssh_user }}"
+        groups: docker
+        append: true
+        state: present
+
+# Outside the block, as meta tasks don't support conditionals
 - name: Reset ssh connection to allow user changes to affect ansible user
   ansible.builtin.meta: reset_connection

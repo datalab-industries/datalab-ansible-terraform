@@ -5,44 +5,107 @@
     - prometheus_user is defined
     - prometheus_password is defined
   block:
+    - name: Get rootless docker data root
+      when: docker_rootless and monitoring_cadvisor | bool
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
+      ansible.builtin.command:
+        cmd: docker info --format {% raw %}'{{ .DockerRootDir }}'{% endraw %}
+      register: docker_root_dir
+      changed_when: false
+      check_mode: false
+
+    - name: Check whether host has /etc/timezone
+      ansible.builtin.stat:
+        path: /etc/timezone
+      register: host_timezone
+
     - name: Launch node_exporter container
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
       community.docker.docker_container:
         name: node-exporter
         image: prom/node-exporter:v1.9.1
+        # The image runs as nobody, which under rootless docker maps to an
+        # unrelated host uid that cannot read the borg metrics in docker_user's
+        # home; container root is docker_user itself, so use that instead
+        user: "{{ '0:0' if docker_rootless else omit }}"
         network_mode: host
         pid_mode: host
-        state: started
+        state: healthy
+        healthy_wait_timeout: 120
         restart_policy: always
         command:
+          - --web.listen-address=:{{ monitoring_node_exporter_port }}
           - --path.rootfs=/host
           - --path.procfs=/host/proc
           - --path.sysfs=/host/sys
           - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
-          - --collector.textfile.directory=/host/var/lib/node_exporter/textfile_collector
-        volumes:
-          # Mount the host's /proc directory to the container's /host/proc directory
-          # This is necessary for the node_exporter to be able to access the host's metrics
-          - /:/host:ro,rslave
+          # Written by the borg role's borgmatic container, via the / mount
+          - --collector.textfile.directory=/host{{ borg_textfile_collector_path | default('/var/lib/node_exporter/textfile_collector') }}
+        healthcheck:
+          test: [CMD, wget, -q, --spider, "http://localhost:{{ monitoring_node_exporter_port }}/"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 5s
+        # Missing bind sources can't be created by rootless docker, so skip them
+        volumes: "{{ node_exporter_volumes + (['/etc/timezone:/etc/timezone:ro'] if host_timezone.stat.exists else []) }}"
+      vars:
+        node_exporter_volumes:
+          # Mount the host's filesystems under /host so node_exporter can report
+          # host metrics. rslave propagation (which picks up mounts made after
+          # the container starts) is not guaranteed under rootless docker.
+          - "/:/host:{{ 'ro' if docker_rootless else 'ro,rslave' }}"
           - /proc:/host/proc:ro
           - /sys:/host/sys:ro
           - /etc/machine-id:/etc/machine-id:ro
-          - /etc/timezone:/etc/timezone:ro
 
     - name: Launch cadvisor container
+      when: monitoring_cadvisor | bool
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
       community.docker.docker_container:
         name: cadvisor
         image: gcr.io/cadvisor/cadvisor:v0.52.1
         network_mode: host
         pid_mode: host
-        state: started
+        state: healthy
+        healthy_wait_timeout: 120
         restart_policy: always
-        ports:
-          - 8080:8080
-        volumes:
+        # The defaults (1s housekeeping, per-container disk usage scans) use a lot
+        # of CPU for metrics that prometheus only scrapes once a minute
+        command:
+          - --port={{ monitoring_cadvisor_port }}
+          - --housekeeping_interval=30s
+          - --disable_metrics=advtcp,cpu_topology,disk,hugetlb,memory_numa,percpu,process,referenced_memory,resctrl,sched,tcp,udp
+        volumes: "{{ cadvisor_common_volumes + (cadvisor_rootless_volumes if docker_rootless else cadvisor_rootful_volumes) }}"
+        healthcheck:
+          test: [CMD, wget, -q, --spider, "http://localhost:{{ monitoring_cadvisor_port }}/healthz"]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 5s
+      vars:
+        cadvisor_common_volumes:
           - /:/rootfs:ro
-          - /var/run:/var/run:rw
           - /sys:/sys:ro
+        cadvisor_rootful_volumes:
+          - /var/run:/var/run:rw
           - /var/lib/docker/:/var/lib/docker:ro
+        # The daemon socket at the default path, and the data root at the path
+        # the daemon reports so cadvisor can find container layers
+        cadvisor_rootless_volumes:
+          - "{{ docker_host | regex_replace('^unix://', '') }}:/var/run/docker.sock:ro"
+          - "{{ docker_root_dir.stdout | default('') }}:{{ docker_root_dir.stdout | default('') }}:ro"
+
+    - name: Remove cadvisor container
+      when: not monitoring_cadvisor | bool
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
+      community.docker.docker_container:
+        name: cadvisor
+        state: absent
 
     - name: Render prometheus config
       ansible.builtin.template:
@@ -52,12 +115,15 @@
       register: prometheus_config
 
     - name: Launch prometheus container
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
       community.docker.docker_container:
         name: prometheus
         image: prom/prometheus:v3.6.0
         recreate: "{{ prometheus_config.changed }}"
         network_mode: host
-        state: started
+        state: healthy
+        healthy_wait_timeout: 120
         restart_policy: always
         command:
           - --config.file=/etc/prometheus/prometheus.yml
@@ -65,13 +131,12 @@
           - --web.console.libraries=/etc/prometheus/console_libraries
           - --web.console.templates=/etc/prometheus/consoles
           - --web.enable-lifecycle
-        ports:
-          - 9090:9090
+          - --web.listen-address=:{{ monitoring_prometheus_port }}
         volumes:
           - "prometheus_data:/prometheus"
           - "{{ ansible_user_home_dir }}/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
         healthcheck:
-          test: [CMD, wget, -q, --spider, http://localhost:9090/-/healthy]
+          test: [CMD, wget, -q, --spider, "http://localhost:{{ monitoring_prometheus_port }}/-/healthy"]
           interval: 30s
           timeout: 10s
           retries: 3

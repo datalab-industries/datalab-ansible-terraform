@@ -1,0 +1,11 @@
+---
+# Ports for the exporters and prometheus, which all use host networking.
+# Override these if the host already runs its own exporters on these ports.
+monitoring_node_exporter_port: 9100
+monitoring_prometheus_port: 9090
+monitoring_cadvisor_port: 8080
+
+# Whether to run cAdvisor for per-container metrics. It uses noticeably more CPU
+# than the other exporters, so is off by default; when off, any existing
+# cadvisor container is removed.
+monitoring_cadvisor: false

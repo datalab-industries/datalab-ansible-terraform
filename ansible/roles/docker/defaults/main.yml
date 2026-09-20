@@ -2,6 +2,12 @@
 # Settings shared by all roles in the playbook, rather than just this one.
 # These are defaults: set any of them per host in the inventory to override.
 
+# Home directory of the ansible user, where the datalab repo, nginx files and
+# other deployment files are kept. root behaves differently than other users, so
+# set the home dir accordingly. Override for accounts whose home is elsewhere
+# (e.g. a service account such as www-data).
+ansible_user_home_dir: "{{ '/' + ansible_user if ansible_user == 'root' else '/home/' + ansible_user }}"
+
 # Whether containers are run by a rootless docker daemon rather than the
 # system-wide one. Rootless daemons must be installed and running before the
 # playbook is run; the docker role will not install or configure them.

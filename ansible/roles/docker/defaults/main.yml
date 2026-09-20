@@ -8,6 +8,13 @@
 # (e.g. a service account such as www-data).
 ansible_user_home_dir: "{{ '/' + ansible_user if ansible_user == 'root' else '/home/' + ansible_user }}"
 
+# Whether the playbook manages nginx and its TLS certificates. Set to false on
+# hosts where a reverse proxy is managed externally (e.g. a system nginx, or a
+# proxy on another machine), in which case the app and API containers still
+# publish their ports for it to proxy to, but no nginx or certbot containers,
+# and no certificate renewal cron job, are created.
+manage_nginx: true
+
 # Whether containers are run by a rootless docker daemon rather than the
 # system-wide one. Rootless daemons must be installed and running before the
 # playbook is run; the docker role will not install or configure them.

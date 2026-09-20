@@ -22,11 +22,14 @@
   pre_tasks:
     - name: Skip bootstrap when the system is managed externally
       ansible.builtin.meta: end_host
-      when: not manage_system
+      # Defaulted inline: this play does not include the docker role, whose
+      # defaults define manage_system
+      when: not (manage_system | default(true))
 
-    - name: Skip bootstrap when target user can already log in
-      ansible.builtin.meta: end_play
-      when: not bootstrap_needed
+    - name: Skip bootstrap when the target user can already log in
+      ansible.builtin.meta: end_host
+      # Defaulted for runs where the probe play was skipped, e.g. by tags
+      when: not (bootstrap_needed | default(true))
 
     - name: Gather facts
       ansible.builtin.setup:

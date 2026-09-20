@@ -12,8 +12,12 @@ borg_ssh_key_file_path: "{{ backup_user_info.home }}/.ssh/{{ borg_ssh_key_name }
 borg_ssh_command: ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=3
 borg_remote_path: false
 borg_remote_rate_limit: 0
+# Only the uploaded files need backing up from disk: the database is dumped
+# separately by the mongodb_databases hook below, and everything else under
+# /data (native snapshots, logs, rootless docker's data root) is either
+# excluded, reproducible, or already covered.
 borg_source_directories:
-  - /data
+  - /data/files
 borg_retention_policy:
   keep_daily: 30
   keep_weekly: 0

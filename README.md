@@ -241,6 +241,7 @@ Both cases can be configured in the inventory:
 
 ```yaml
 manage_system: false      # assume system packages and docker are already installed
+manage_nginx: false       # a reverse proxy and its certificates are managed elsewhere
 docker_rootless: true     # use a rootless docker daemon...
 docker_user: docker       # ...owned by this user, which ansible_user must be able to become
 docker_shared_group: datalab  # a group containing both users, used to share synced files
@@ -250,6 +251,11 @@ docker_shared_group: datalab  # a group containing both users, used to share syn
 With `manage_system: false`, the playbook skips bootstrapping, disk mounting, package installation,
 fail2ban, sshd hardening and upgrades, and only checks that the configured Docker daemon is reachable
 before deploying the *datalab* services.
+
+With `manage_nginx: false`, no nginx or certbot containers are created and no certificate
+renewal is scheduled. The app and API containers still publish their ports (8081 and 5001),
+so an externally managed reverse proxy can be pointed at them; it is then responsible for TLS
+and for the `app_url`/`api_url` routing that the bundled nginx config would otherwise handle.
 
 With `docker_rootless: true`, all Docker commands (including scheduled cron jobs) are run as
 `docker_user` against its daemon.

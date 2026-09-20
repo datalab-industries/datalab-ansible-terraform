@@ -87,6 +87,7 @@
     - role: ssl_first_run
       name: Run stripped down nginx and SSL for the first time
       tags: [setup, ssl]
+      when: manage_nginx
     - role: datalab
       name: Build and launch datalab services
       tags: [setup, deploy]
@@ -96,6 +97,7 @@
     - role: nginx
       name: Launch nginx container with autorenewing certbot
       tags: [setup, nginx, maintenance, ssl]
+      when: manage_nginx
     - role: borg
       name: Configure borg(matic) and remote backups
       tags: [borg]

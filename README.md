@@ -354,6 +354,13 @@ using [Borg](https://www.borgbackup.org/en/stable/) and
 These backups are encrypted, de-duplicated and compressed, requiring significantly
 less space than the native backup option, and can be synced easily with remote
 Borg instances over SSH.
+By default, only `/data/files` is backed up from disk, alongside a dump of the
+*datalab* MongoDB database made by borgmatic's database hook.
+Other paths under `/data` (native snapshots in `/data/backups`, logs, and the
+data directory of a rootless Docker daemon) are deliberately left out, as they
+are either reproducible or covered elsewhere; set `borg_source_directories` in
+your inventory to back up more.
+
 You will need to have an appropriate remote server (ideally separate from the *datalab* server itself)
 running Borg (we recommend [rsync.net](https://www.rsync.net/products/borg.html) which has excellent borg support).
 

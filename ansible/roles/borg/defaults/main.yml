@@ -27,6 +27,13 @@ borgmatic_timer_minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
 borg_install_method: package
 borg_require_epel: "{{ ansible_os_family == 'RedHat' and ansible_distribution != 'Fedora' }}"
 
+# Persistent borg cache, mounted into the borgmatic container. Without it, the
+# files cache (inode/size/mtime) is lost with each container, so every run
+# re-reads and re-hashes every source file. Borg marks this directory with
+# CACHEDIR.TAG, so it is excluded from backups even if it sits under a source
+# directory.
+borg_cache_dir: "{{ ansible_user_home_dir }}/borgmatic/cache"
+
 # Host directory read by node_exporter's textfile collector. The borgmatic
 # container bind-mounts this to /metrics and writes status metrics there.
 borg_textfile_collector_path: /var/lib/node_exporter/textfile_collector

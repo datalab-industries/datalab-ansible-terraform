@@ -1,0 +1,26 @@
+---
+# Periodic syncing of a ChemInventory inventory into datalab, using
+# https://github.com/datalab-industries/datalab-cheminventory-plugin
+#
+# The sync is only configured when cheminventory_inventory_id,
+# cheminventory_api_key and cheminventory_datalab_api_key are all set in the
+# inventory; otherwise this role does nothing.
+
+# When to run the sync, as a standard 5-field cron expression
+# (minute hour day-of-month month day-of-week). Defaults to daily at 6:11am.
+cheminventory_cron_frequency: "11 6 * * *"
+
+# The datalab API that items are synced into; defaults to the host's api_url,
+# with https:// added if no scheme is given.
+cheminventory_datalab_api_url: "{{ api_url if api_url is match('^https?://') else 'https://' ~ api_url }}"
+
+# The version of the plugin image to run
+cheminventory_image: ghcr.io/datalab-industries/datalab-cheminventory-plugin
+cheminventory_image_version: v1.4.1
+
+# Directory for the sync's env file, which holds the API keys so that they do
+# not appear in the crontab
+cheminventory_config_dir: "{{ docker_user_home_dir }}/cheminventory"
+
+# Output of the most recent sync
+cheminventory_log_file: "{{ docker_user_home_dir }}/last_cheminventory_sync.txt"

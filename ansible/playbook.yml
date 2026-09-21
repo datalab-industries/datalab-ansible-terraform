@@ -95,6 +95,9 @@
     - role: datalab
       name: Build and launch datalab services
       tags: [setup, deploy]
+    - role: cheminventory
+      name: Schedule ChemInventory syncing
+      tags: [setup, cheminventory]
     - role: extras
       name: Deploy any extras found in src/extras
       tags: [setup, extras]

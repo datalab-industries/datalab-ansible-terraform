@@ -18,6 +18,10 @@ ungrouped:
       prometheus_remote_write_url: <your_prometheus_instance_url, e.g., https://grafana.datalab.industries/prometheus/api/v1/write>
       prometheus_user: <the username to access the prometheus server>
       prometheus_password: <the password to access the prometheus server>
+      cheminventory_inventory_id: <(optional) the ChemInventory inventory ID to sync into datalab>
+      cheminventory_api_key: <(optional) the ChemInventory API key>
+      cheminventory_datalab_api_key: <(optional) the datalab API key used to write synced items>
+      cheminventory_cron_frequency: <(optional) cron expression for the sync, e.g., "44 * * * *">
       extras:
         <service_name>:
           url: <service_url>

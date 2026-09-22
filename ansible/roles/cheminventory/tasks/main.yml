@@ -54,4 +54,4 @@
         day: "{{ cron_fields[2] }}"
         month: "{{ cron_fields[3] }}"
         weekday: "{{ cron_fields[4] }}"
-        job: export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; docker run --rm --env-file {{ cheminventory_config_dir }}/.env {{ cheminventory_image }}:{{ cheminventory_image_version }} uv run datalab-cheminventory-sync > {{ cheminventory_log_file }} 2>&1  # noqa: line-length
+        job: export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; docker run --rm --env-file {{ cheminventory_config_dir }}/.env {{ cheminventory_image }}:{{ cheminventory_image_version }} uv run datalab-cheminventory-sync > {{ cheminventory_log_file }} 2>&1 || cat {{ cheminventory_log_file }}  # noqa: line-length

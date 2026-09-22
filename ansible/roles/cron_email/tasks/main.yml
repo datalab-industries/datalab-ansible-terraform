@@ -1,0 +1,63 @@
+---
+- name: Check that cron email settings are either all set or all unset
+  vars:
+    cron_email_settings: [cron_mailto, cron_mail_from, cron_smtp_host, cron_smtp_user, cron_smtp_password]
+    cron_email_missing: "{{ cron_email_settings | reject('in', query('ansible.builtin.varnames', '^(' ~ cron_email_settings | join('|') ~ ')$')) | list }}"
+  ansible.builtin.assert:
+    that: cron_email_missing | length in [0, cron_email_settings | length]
+    fail_msg: "Cron emails are partially configured; also set {{ cron_email_missing | join(', ') }} in the inventory"
+    quiet: true
+
+- name: Configure emails for failed cron jobs
+  when: cron_mailto is defined
+  block:
+    - name: Gather installed packages
+      when: manage_system and ansible_os_family == 'Debian'
+      ansible.builtin.package_facts:
+
+    # cron sends mail via /usr/sbin/sendmail, which msmtp-mta provides by
+    # relaying to the SMTP server. It conflicts with other MTAs, which apt
+    # would silently remove, so any existing one is used instead.
+    - name: Install msmtp as the system sendmail
+      when:
+        - manage_system
+        - ansible_os_family == 'Debian'
+        - not (['postfix', 'exim4-daemon-light', 'exim4-daemon-heavy', 'sendmail-bin', 'nullmailer'] | intersect(ansible_facts.packages.keys()))
+      become: true
+      ansible.builtin.apt:
+        name: msmtp-mta
+        state: present
+        update_cache: true
+
+    - name: Configure msmtp for docker user
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
+      ansible.builtin.template:
+        src: msmtprc.j2
+        dest: "{{ docker_user_home_dir }}/.msmtprc"
+        mode: "0600"
+      no_log: true
+      notify: test cron email
+
+    - name: Email cron job output to cron_mailto
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
+      ansible.builtin.cron:
+        env: true
+        name: "{{ item.name }}"
+        job: "{{ item.value }}"
+      loop:
+        - {name: MAILTO, value: "{{ cron_mailto }}"}
+        # Used as the sender by cronie (RHEL); Debian's cron relies on msmtp's `from`
+        - {name: MAILFROM, value: "{{ cron_mail_from }}"}
+      notify: test cron email
+
+- name: Stop emailing cron job output
+  when: cron_mailto is not defined
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
+  ansible.builtin.cron:
+    env: true
+    name: "{{ item }}"
+    state: absent
+  loop: [MAILTO, MAILFROM]

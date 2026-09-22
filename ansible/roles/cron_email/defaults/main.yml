@@ -1,0 +1,26 @@
+---
+# Emails for failed cron jobs.
+#
+# When all of the settings below are set in the inventory, cron emails any
+# output from the docker user's cron jobs (which only print their logs when
+# they fail) to cron_mailto, relayed through the SMTP server via msmtp.
+# When none are set, this role does nothing; setting only some is an error.
+#
+# For example, with Resend (https://resend.com/docs/send-with-smtp):
+#   cron_smtp_host: smtp.resend.com
+#   cron_smtp_user: resend
+#   cron_smtp_password: <a Resend API key>
+
+# Where to send failed cron job output, e.g., a team mailing list
+# cron_mailto:
+
+# The sender address; its domain must be verified with the SMTP provider
+# cron_mail_from:
+
+# cron_smtp_host:
+# cron_smtp_user:
+# cron_smtp_password:
+
+# STARTTLS, which is less often firewalled than implicit TLS on 465; any port
+# other than 465 uses STARTTLS
+cron_smtp_port: 587

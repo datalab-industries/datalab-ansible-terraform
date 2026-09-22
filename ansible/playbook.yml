@@ -80,6 +80,9 @@
     - role: docker
       name: Install and configure Docker
       tags: [setup]
+    - role: cron_email
+      name: Configure emails for failed cron jobs
+      tags: [setup, cron_email]
     - role: fail2ban
       name: Install and configure fail2ban
       tags: [setup]

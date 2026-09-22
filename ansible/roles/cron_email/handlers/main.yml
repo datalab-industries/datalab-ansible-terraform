@@ -1,0 +1,15 @@
+---
+- name: Send test cron email
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      printf 'To: %s\nSubject: %s\n\n%s\n' \
+        '{{ cron_mailto }}' \
+        'datalab cron emails configured for {{ inventory_hostname }}' \
+        'Failed cron jobs on {{ inventory_hostname }} will now be emailed to this address.' \
+        | /usr/sbin/sendmail -t
+    executable: /bin/bash
+  changed_when: true
+  listen: test cron email

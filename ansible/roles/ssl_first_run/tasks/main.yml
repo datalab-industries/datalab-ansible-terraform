@@ -99,4 +99,4 @@
     hour: "10"
     weekday: "2"
     month: "*"
-    job: export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; docker run --rm -v certbot-www:/var/www/certbot -v certbot-conf:/etc/letsencrypt certbot/certbot:latest renew && docker exec datalab-nginx nginx -s reload  # noqa: line-length
+    job: export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; (docker run --rm -v certbot-www:/var/www/certbot -v certbot-conf:/etc/letsencrypt certbot/certbot:latest renew && docker exec datalab-nginx nginx -s reload) > {{ docker_user_home_dir }}/last_ssl_renewal.txt 2>&1 || cat {{ docker_user_home_dir }}/last_ssl_renewal.txt  # noqa: line-length

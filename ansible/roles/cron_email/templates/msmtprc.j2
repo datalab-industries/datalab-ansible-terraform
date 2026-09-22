@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+defaults
+auth on
+tls on
+tls_starttls {{ 'off' if cron_smtp_port | int == 465 else 'on' }}
+tls_trust_file {{ '/etc/ssl/certs/ca-certificates.crt' if ansible_os_family == 'Debian' else '/etc/pki/tls/certs/ca-bundle.crt' }}
+syslog LOG_MAIL
+# Fail rather than hang forever when the SMTP port is firewalled
+timeout 30
+
+account relay
+host {{ cron_smtp_host }}
+port {{ cron_smtp_port }}
+user {{ cron_smtp_user }}
+password {{ cron_smtp_password }}
+from {{ cron_mail_from }}
+# cron sets its own From header, which the relay would reject
+set_from_header on
+
+account default : relay

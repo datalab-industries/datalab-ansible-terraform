@@ -223,4 +223,4 @@
     hour: "5"
     weekday: "7"
     month: "*"
-    job: cd {{ ansible_user_home_dir }}/datalab; export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; docker compose exec api /opt/.venv/bin/python -m invoke admin.create-backup --strategy-name weekly-snapshots
+    job: cd {{ ansible_user_home_dir }}/datalab; export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; docker compose exec api /opt/.venv/bin/python -m invoke admin.create-backup --strategy-name weekly-snapshots > {{ docker_user_home_dir }}/last_weekly_snapshot.txt 2>&1 || cat {{ docker_user_home_dir }}/last_weekly_snapshot.txt  # noqa: line-length

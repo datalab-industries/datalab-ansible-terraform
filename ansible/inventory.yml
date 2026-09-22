@@ -18,6 +18,12 @@ ungrouped:
       prometheus_remote_write_url: <your_prometheus_instance_url, e.g., https://grafana.datalab.industries/prometheus/api/v1/write>
       prometheus_user: <the username to access the prometheus server>
       prometheus_password: <the password to access the prometheus server>
+      # (optional) email failed cron jobs; set all or none of the following
+      cron_mailto: <the address to email failed cron jobs to>
+      cron_mail_from: <the sender address, on a domain verified with the SMTP provider>
+      cron_smtp_host: <the SMTP server, e.g., smtp.resend.com>
+      cron_smtp_user: <the SMTP username, e.g., resend>
+      cron_smtp_password: <the SMTP password, e.g., a Resend API key>
       cheminventory_inventory_id: <(optional) the ChemInventory inventory ID to sync into datalab>
       cheminventory_api_key: <(optional) the ChemInventory API key>
       cheminventory_datalab_api_key: <(optional) the datalab API key used to write synced items>

@@ -453,6 +453,46 @@ and then running the playbook with the `monitoring` tag:
 make monitoring
 ```
 
+#### ChemInventory syncing
+
+Items from a [ChemInventory](https://www.cheminventory.net/) inventory can be
+periodically synced into *datalab* using the
+[datalab-cheminventory-plugin](https://github.com/datalab-industries/datalab-cheminventory-plugin).
+This is enabled by adding the following variables to your inventory:
+
+```yaml
+cheminventory_inventory_id: <your_cheminventory_inventory_id>
+cheminventory_api_key: <your_cheminventory_api_key>
+cheminventory_datalab_api_key: <a_datalab_api_key_for_the_sync>
+cheminventory_cron_frequency: "44 * * * *"  # (optional) defaults to daily at 6:11am
+```
+
+The inventory ID is the numeric ID of the ChemInventory inventory to sync.
+To find it, run the plugin's `status` command with your ChemInventory API key
+(see the ChemInventory [API authentication docs](https://www.cheminventory.net/support/api/#apiauthentication)
+for how to create one); no *datalab* connection is needed:
+
+```shell
+docker run --rm -e CHEMINVENTORY_API_KEY=<your_cheminventory_api_key> \
+  ghcr.io/datalab-industries/datalab-cheminventory-plugin:latest \
+  uv run datalab-cheminventory-sync status
+```
+
+This lists the key's default inventory and any other inventories it can
+access, each with its ID in brackets, e.g., `Default inventory: My Lab (12345)`.
+
+The sync targets the host's `api_url` by default (override with
+`cheminventory_datalab_api_url`), and the plugin version can be set with
+`cheminventory_image_version`.
+The API keys are written to an env file readable only by the docker user,
+rather than into the crontab, and the output of the latest sync is written to
+`~/last_cheminventory_sync.txt`.
+Then run the playbook with the `cheminventory` tag:
+
+```shell
+make cheminventory
+```
+
 #### Running additional containers
 
 It is often the case that users wish to run additional services alongside *datalab* on the same server.

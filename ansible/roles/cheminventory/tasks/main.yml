@@ -1,0 +1,57 @@
+---
+- name: Configure ChemInventory sync
+  when:
+    - cheminventory_inventory_id is defined
+    - cheminventory_api_key is defined
+    - cheminventory_datalab_api_key is defined
+  block:
+    - name: Check that the cron frequency is a 5-field cron expression
+      ansible.builtin.assert:
+        that: cheminventory_cron_frequency.split() | length == 5
+        fail_msg: >-
+          cheminventory_cron_frequency must have 5 fields
+          (minute hour day-of-month month day-of-week), got
+          '{{ cheminventory_cron_frequency }}'
+
+    - name: Ensure ChemInventory config directory exists
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
+      ansible.builtin.file:
+        path: "{{ cheminventory_config_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Write ChemInventory sync env file
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
+      ansible.builtin.copy:
+        dest: "{{ cheminventory_config_dir }}/.env"
+        mode: "0600"
+        content: |
+          CHEMINVENTORY_INVENTORY_ID={{ cheminventory_inventory_id }}
+          CHEMINVENTORY_API_KEY={{ cheminventory_api_key }}
+          DATALAB_API_KEY={{ cheminventory_datalab_api_key }}
+          DATALAB_API_URL={{ cheminventory_datalab_api_url }}
+      no_log: true
+
+    - name: Pull ChemInventory sync image
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
+      community.docker.docker_image:
+        name: "{{ cheminventory_image }}"
+        tag: "{{ cheminventory_image_version }}"
+        source: pull
+
+    - name: Add cron job for ChemInventory sync
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
+      vars:
+        cron_fields: "{{ cheminventory_cron_frequency.split() }}"
+      ansible.builtin.cron:
+        name: ChemInventory sync
+        minute: "{{ cron_fields[0] }}"
+        hour: "{{ cron_fields[1] }}"
+        day: "{{ cron_fields[2] }}"
+        month: "{{ cron_fields[3] }}"
+        weekday: "{{ cron_fields[4] }}"
+        job: export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; docker run --rm --env-file {{ cheminventory_config_dir }}/.env {{ cheminventory_image }}:{{ cheminventory_image_version }} uv run datalab-cheminventory-sync > {{ cheminventory_log_file }} 2>&1  # noqa: line-length

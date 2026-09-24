@@ -5,7 +5,9 @@ borg_exclude_patterns:
 borg_exclude_from: []
 borg_one_file_system: true
 borg_encryption_passcommand: false
-borg_lock_wait_time: 5
+# Long enough for an overlapping run to wait its turn rather than fail: the
+# cache is persistent, so its lock is shared between runs
+borg_lock_wait_time: 300
 borg_ssh_key_type: ed25519
 borg_ssh_key_name: id_{{ borg_ssh_key_type }}
 borg_ssh_key_file_path: "{{ backup_user_info.home }}/.ssh/{{ borg_ssh_key_name }}"
@@ -41,6 +43,12 @@ borg_config_dir: "{{ docker_user_home_dir }}/borgmatic"
 # CACHEDIR.TAG, so it is excluded from backups even if it sits under a source
 # directory.
 borg_cache_dir: "{{ borg_config_dir }}/cache"
+
+# Fixed hostname and borg host ID for the borgmatic containers. Otherwise each
+# container gets a random hostname, so archives record a different host every
+# run and borg treats locks left by a killed run as held by another machine,
+# which it will not break as stale.
+borg_container_hostname: datalab-borgmatic
 
 # Host directory read by node_exporter's textfile collector. The borgmatic
 # container bind-mounts this to /metrics and writes status metrics there.

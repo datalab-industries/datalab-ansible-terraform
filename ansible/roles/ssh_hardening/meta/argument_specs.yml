@@ -1,0 +1,16 @@
+---
+argument_specs:
+  main:
+    short_description: Disable password SSH and harden sshd
+    description:
+      - Turns off password authentication and restricts root login.
+      - Skipped when manage_system is false.
+    options:
+      sshd_permit_root_login:
+        type: str
+        required: false
+        choices: ["yes", "no", prohibit-password, forced-commands-only]
+        description:
+          - Value of the sshd PermitRootLogin setting.
+          - Defaults to no when ansible_user is not root, and to prohibit-password
+            when it is, which keeps key-only root login working.

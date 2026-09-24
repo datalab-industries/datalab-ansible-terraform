@@ -1,0 +1,167 @@
+---
+argument_specs:
+  main:
+    short_description: Configure borg and borgmatic for encrypted, offsite backups
+    description:
+      - Runs borgmatic in a container on a schedule, backing up the datalab files and a
+        dump of the database to a local or remote borg repository.
+      - The role does nothing unless borg_repository, borg_encryption_passphrase and
+        borg_remote_path are set, and an SSH key exists at vaults/borg/.ssh/id_ed25519.
+    options:
+      borg_repository:
+        type: str
+        required: false
+        description: Path to the borg repository, either local or remote (e.g. user@host:repo).
+      borg_encryption_passphrase:
+        type: str
+        required: false
+        description:
+          - Passphrase used to encrypt the repository.
+          - Store a copy outside this repository. Without it the backups cannot be restored.
+      borg_remote_path:
+        type: str
+        required: false
+        description: The borg command to run on the remote repository, e.g. borg1 or borg2.
+      borg_source_directories:
+        type: list
+        elements: str
+        required: false
+        default: [/data/files]
+        description:
+          - Directories to back up from disk.
+          - The database is dumped separately by the borgmatic database hook, and the
+            rest of /data is either excluded, reproducible or already covered.
+      borg_exclude_patterns:
+        type: list
+        elements: str
+        required: false
+        default: [/data/backups]
+        description: Paths to exclude from the backup.
+      borg_exclude_from:
+        type: list
+        elements: str
+        required: false
+        description: Files containing additional exclude patterns.
+      borg_retention_policy:
+        type: dict
+        required: false
+        description: Number of archives to keep, as keep_daily, keep_weekly, keep_monthly and keep_yearly.
+      borg_one_file_system:
+        type: bool
+        required: false
+        default: true
+        description: Whether to stay on one filesystem, i.e. not descend into other mount points.
+      borg_remote_rate_limit:
+        type: int
+        required: false
+        default: 0
+        description: Upload rate limit in kiB/s, or 0 for no limit.
+      borg_ssh_command:
+        type: str
+        required: false
+        description: SSH command used to reach the remote repository.
+      borg_ssh_key_type:
+        type: str
+        required: false
+        default: ed25519
+        description: Type of the SSH key used for the remote repository.
+      borg_ssh_key_name:
+        type: str
+        required: false
+        description: Filename of the SSH key, which must exist in the vaults/borg/.ssh directory.
+      borg_encryption_passcommand:
+        type: raw
+        required: false
+        default: false
+        description: Command that prints the passphrase, used instead of borg_encryption_passphrase.
+      borg_lock_wait_time:
+        type: int
+        required: false
+        default: 5
+        description: Seconds to wait for the repository lock.
+      borg_version:
+        type: raw
+        required: false
+        default: false
+        description: Version of borg to install, or false for the packaged version.
+      borg_install_method:
+        type: str
+        required: false
+        default: package
+        choices: [package, pip]
+        description: How borg is installed on the host.
+      borg_textfile_collector_path:
+        type: str
+        required: false
+        description:
+          - Host directory read by the node_exporter textfile collector.
+          - The borgmatic container writes backup status metrics here, which the
+            monitoring role exports.
+      borg_cache_dir:
+        type: str
+        required: false
+        description: Host directory holding the persistent borg cache.
+      borg_config_dir:
+        type: str
+        required: false
+        description: Host directory holding the borgmatic configuration.
+      borgmatic_timer:
+        type: str
+        required: false
+        default: cron
+        description: How the backup is scheduled.
+      borgmatic_timer_cron_name:
+        type: str
+        required: false
+        default: borgmatic
+        description: Name of the cron job that runs the backup.
+      borgmatic_timer_hour:
+        type: raw
+        required: false
+        description: Hour the backup runs. Defaults to a random early hour, seeded by the host name.
+      borgmatic_timer_minute:
+        type: raw
+        required: false
+        description: Minute the backup runs. Defaults to a random minute, seeded by the host name.
+      borgmatic_hooks:
+        type: dict
+        required: false
+        description: borgmatic hooks, including the MongoDB dump and the metrics written after each run.
+      borgmatic_checks:
+        type: list
+        elements: dict
+        required: false
+        description: Consistency checks borgmatic runs, and how often.
+      borgmatic_check_last:
+        type: int
+        required: false
+        default: 3
+        description: Number of recent archives to check.
+      borgmatic_store_atime:
+        type: bool
+        required: false
+        default: true
+        description: Whether to store file access times.
+      borgmatic_store_ctime:
+        type: bool
+        required: false
+        default: true
+        description: Whether to store file change times.
+      borgmatic_relocated_repo_access_is_ok:
+        type: bool
+        required: false
+        default: false
+        description: Whether to accept a repository that has moved, without prompting.
+      borgmatic_version:
+        type: str
+        required: false
+        description: Version constraint for borgmatic.
+      borg_venv_path:
+        type: str
+        required: false
+        default: /opt/borgmatic
+        description: Path of the borgmatic virtualenv, when installed on the host.
+      borg_require_epel:
+        type: bool
+        required: false
+        description: Whether EPEL is needed to install borg, which is true on RHEL-like distributions.

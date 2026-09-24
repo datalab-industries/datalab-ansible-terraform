@@ -1,0 +1,70 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure Docker, and set the deployment-wide defaults
+    description:
+      - Installs Docker and the Python Docker SDK, or checks that an externally managed
+        daemon is reachable.
+      - The defaults of this role are shared by every other role in the playbook, so
+        settings such as manage_system and docker_user are defined here.
+    options:
+      manage_system:
+        type: bool
+        required: false
+        default: true
+        description:
+          - Whether the playbook manages the host system, i.e. bootstrapping the ansible
+            user as root, mounting the data disk, installing system packages and Docker,
+            configuring fail2ban and sshd, and keeping packages up to date.
+          - Set to false on hosts managed externally, where Docker and the Python Docker
+            SDK must already be installed.
+      manage_nginx:
+        type: bool
+        required: false
+        default: true
+        description: Whether the playbook manages nginx and its TLS certificates.
+      docker_rootless:
+        type: bool
+        required: false
+        default: false
+        description:
+          - Whether containers run under a rootless Docker daemon rather than the system one.
+          - Rootless daemons must already be installed and running; this role will not
+            install or configure them.
+      docker_user:
+        type: str
+        required: false
+        description:
+          - The user that runs Docker commands.
+          - For rootful Docker this is ansible_user, who is added to the docker group.
+            For rootless Docker it is the user that owns the daemon, which ansible
+            becomes for any Docker task. Defaults to ansible_user.
+      docker_host:
+        type: str
+        required: false
+        description:
+          - The daemon socket to connect to.
+          - Defaults to the system socket, or to the rootless socket of docker_user
+            when docker_rootless is true.
+      docker_shared_group:
+        type: str
+        required: false
+        description:
+          - A group shared by ansible_user and docker_user.
+          - When set, and the two users differ, files synced by ansible (e.g. build
+            contexts and env files) are made readable by this group.
+      docker_cron_path:
+        type: str
+        required: false
+        description:
+          - PATH used by cron jobs that call docker.
+          - Cron only searches /usr/bin and /bin, but rootless installs often put the
+            CLI elsewhere.
+      ansible_user_home_dir:
+        type: str
+        required: false
+        description:
+          - Directory that holds the datalab repository, nginx files and other
+            deployment files.
+          - Defaults to the home directory of ansible_user. Override it for accounts
+            whose home is elsewhere, such as a service account.

@@ -1,0 +1,8 @@
+---
+argument_specs:
+  main:
+    short_description: Keep system packages up to date
+    description:
+      - Upgrades installed packages and configures unattended upgrades, or dnf-automatic
+        on RHEL-like distributions.
+      - Runs under the maintenance tag, and is skipped when manage_system is false.

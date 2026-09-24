@@ -13,11 +13,8 @@ Both should be encrypted before committing (see [Encrypting the configuration](#
 
 ## Ansible inventory
 
-Copy the example inventory and edit your copy (see the [full inventory documentation](https://docs.ansible.com/ansible/latest/inventory_guide/intro_inventory.html)):
-
-```shell
-cp ansible/inventory.example.yml ansible/inventory.yml
-```
+Edit `ansible/inventory.yml`, which `make quickstart` copied from the example (see the [full inventory documentation](https://docs.ansible.com/ansible/latest/inventory_guide/intro_inventory.html)).
+Any `make` target that runs the playbook creates it from the example if it is missing.
 
 The example lists every setting most deployments need:
 

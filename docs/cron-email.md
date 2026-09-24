@@ -1,3 +1,7 @@
+---
+title: Emails for failed cron jobs
+---
+
 # Emails for failed cron jobs
 
 The playbook schedules several cron jobs as the docker user: certificate renewal, weekly snapshots, Borg backups and ChemInventory syncing.

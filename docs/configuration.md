@@ -1,3 +1,7 @@
+---
+title: Configuration
+---
+
 # Configuration
 
 There are two main sources of configuration:
@@ -9,48 +13,19 @@ Both should be encrypted before committing (see [Encrypting the configuration](#
 
 ## Ansible inventory
 
-Edit `ansible/inventory.yml` (see the [full inventory documentation](https://docs.ansible.com/ansible/latest/inventory_guide/intro_inventory.html)):
+Copy the example inventory and edit your copy (see the [full inventory documentation](https://docs.ansible.com/ansible/latest/inventory_guide/intro_inventory.html)):
 
-```yaml
-ungrouped:
-  hosts:
-    <hostname>:
-      ansible_become_method: sudo
-      ansible_user: <remote_username>
-      api_url: <desired_datalab_api_url>
-      app_url: <desired_datalab_app_url>
-      # Optional settings:
-      ansible_become_password: <remote_user_password>  # if needed for a non-root user
-      datalab_prefix: <prefix used for monitoring labels>
-      mount_data_disk: <disk device file, e.g., /dev/sdb, or a full fstab source, e.g., UUID=aaaa-bbbb-cccc>
-      data_disk_type: <fstype of the data disk, defaults to xfs>
-      borg_encryption_passphrase: <passphrase for borg encryption>
-      borg_remote_path: <command to run borg on the repository, e.g., borg1>
-      borg_repository: <path to the borg repository, local or remote>
-      prometheus_remote_write_url: <e.g., https://grafana.datalab.industries/prometheus/api/v1/write>
-      prometheus_user: <your_prometheus_username>
-      prometheus_password: <your_prometheus_password>
-      # Emails for failed cron jobs; set all or none of these
-      cron_mailto: <the address to email failed cron jobs to>
-      cron_mail_from: <the sender address, on a domain verified with the SMTP provider>
-      cron_smtp_host: <the SMTP server, e.g., smtp.resend.com>
-      cron_smtp_user: <the SMTP username, e.g., resend>
-      cron_smtp_password: <the SMTP password, e.g., a Resend API key>
-      # ChemInventory syncing
-      cheminventory_inventory_id: <the ChemInventory inventory ID to sync>
-      cheminventory_api_key: <the ChemInventory API key>
-      cheminventory_datalab_api_key: <the datalab API key used to write synced items>
-      manage_system: <whether to install system packages and docker, defaults to true>
-      manage_nginx: <whether to manage nginx and its certificates, defaults to true>
-      docker_rootless: <whether to use a rootless docker daemon, defaults to false>
-      docker_user: <the user that runs docker commands, defaults to ansible_user>
-      extras:  # see "Additional containers"
-        <service_name>:
-          url: <service_url>
-          port: <service_port>
+```shell
+cp ansible/inventory.example.yml ansible/inventory.yml
 ```
 
-Replace `<hostname>` and each setting with your own values.
+The example lists every setting most deployments need:
+
+```yaml title="ansible/inventory.example.yml"
+--8<-- "ansible/inventory.example.yml"
+```
+
+Replace `<hostname>` and each setting with your own values, and delete the ones you do not need. Only `ansible_user`, `api_url` and `app_url` are required.
 
 The API can be served in one of two ways:
 
@@ -64,6 +39,10 @@ If `mount_data_disk` is set, the disk is mounted at `/data`, which is where *dat
 
 The Borg, Prometheus, `cron_*`, `cheminventory_*` and `extras` settings are described in [Backups](backups.md), [Monitoring](monitoring.md), [Emails for failed cron jobs](cron-email.md), [ChemInventory syncing](cheminventory.md) and [Additional containers](extras.md).
 The `manage_*` and `docker_*` settings are described in [Rootless Docker and managed hosts](managed-hosts.md).
+
+Every variable the playbook accepts is listed in the [role reference](reference/index.md), including the ones most deployments never change.
+Each role declares its variables in its own `meta/argument_specs.yml`, which Ansible validates the inventory against at the start of the run.
+A misspelled or wrongly typed variable therefore fails immediately, with a message naming the role and the variable, rather than part way through the deployment.
 
 ## *datalab* configuration
 

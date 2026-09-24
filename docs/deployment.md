@@ -1,4 +1,8 @@
-# Deploying and updating
+---
+title: Deploying
+---
+
+# Deploying
 
 ## DNS
 
@@ -42,52 +46,6 @@ make borg         # configure Borg backups
 make monitoring   # configure Prometheus monitoring
 ```
 
-## Updating *datalab*
+Once the instance is running, work through the [deployment checklist](checklist.md) for the tasks that follow a first deployment, such as setting up logins, an admin account and backups.
 
-To update *datalab*, update the git submodule in `src/datalab` and redeploy:
-
-```shell
-cd src/datalab
-git fetch --tags
-git checkout <tag>
-cd ../..
-git commit src/datalab -m "Update datalab to <tag>"
-make deploy
-```
-
-The submodule can point to your own fork to include custom changes.
-In that case you may also need to test and maintain your own Ansible rules and configuration.
-
-Read the [*datalab* release notes](https://github.com/datalab-org/datalab/releases) and make sure your backups work before updating.
-
-## Syncing with the upstream template
-
-To pull in changes to the playbooks from this template repository, update the submodule in `src/datalab-ansible-terraform` and run the helper script:
-
-```shell
-cd src/datalab-ansible-terraform
-git fetch --tags
-git checkout <tag>
-cd ../..
-./sync-ansible-upstream.sh
-```
-
-The script copies the upstream playbooks, `Makefile`, `README.md`, `requirements.*`, `.vault-pass.sh`, `docs/` and `zensical.toml` into your repository.
-It asks you to review each change to the `ansible` directory before staging it.
-Review carefully if you have made custom changes to the playbooks.
-It then commits the playbooks, `docs/`, `zensical.toml` and the submodule update, so you know exactly which version of the playbooks is running.
-Changes to the other copied files are left uncommitted for you to review.
-
-The script does not touch your vaults, inventory, `CHECKLIST.md` or `deployment-notes/`.
-See [About deployment docs](project-docs.md).
-
-## Building these docs
-
-This documentation is built with [zensical](https://zensical.org).
-It is not part of `requirements.txt`; the `Makefile` runs a pinned version with `uvx`, so building the docs is optional and cannot affect the Ansible install.
-To preview it locally, run:
-
-```shell
-make docs         # serve with live reload
-make docs-build   # build the static site into ./site
-```
+To update *datalab* or the playbooks later, see [Updating](updating.md).

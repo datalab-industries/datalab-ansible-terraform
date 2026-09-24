@@ -28,6 +28,12 @@ ungrouped:
       cheminventory_api_key: <(optional) the ChemInventory API key>
       cheminventory_datalab_api_key: <(optional) the datalab API key used to write synced items>
       cheminventory_cron_frequency: <(optional) cron expression for the sync, e.g., "44 * * * *">
+      # (optional) for hosts you do not fully control; see the docs on
+      # rootless docker and externally managed hosts
+      manage_system: <whether to install system packages and docker, defaults to true>
+      manage_nginx: <whether to manage nginx and its certificates, defaults to true>
+      docker_rootless: <whether to use a rootless docker daemon, defaults to false>
+      docker_user: <the user that runs docker commands, defaults to ansible_user>
       extras:
         <service_name>:
           url: <service_url>

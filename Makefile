@@ -34,20 +34,16 @@ vaults:
 		fi; \
 	done
 
-# Mirror deployment-notes/ into docs/ as file symlinks, as zensical does not follow directory symlinks
-docs-notes:
-	@rm -rf docs/deployment-notes
-	@cd deployment-notes && find . -type f | while read -r f; do \
-		mkdir -p "$(CURDIR)/docs/deployment-notes/$$(dirname "$$f")"; \
-		ln -s "$(CURDIR)/deployment-notes/$$f" "$(CURDIR)/docs/deployment-notes/$$f"; \
-	done
+# Generate the role reference pages from the roles' argument specs
+docs-reference:
+	uv run --quiet scripts/gen-role-docs.py
 
 ZENSICAL = uvx zensical@0.0.62
 
-docs: docs-notes
+docs: docs-reference
 	$(ZENSICAL) serve
 
-docs-build: docs-notes
+docs-build: docs-reference
 	$(ZENSICAL) build --clean
 
 %:
@@ -61,4 +57,4 @@ docs-build: docs-notes
 	fi
 
 
-.PHONY: list docs docs-notes docs-build
+.PHONY: list docs docs-reference docs-build

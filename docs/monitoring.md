@@ -1,3 +1,7 @@
+---
+title: Monitoring
+---
+
 # Monitoring
 
 ## Uptime monitoring
@@ -20,9 +24,11 @@ If the server already runs its own exporters on the default ports, change them w
 The local Prometheus sends metrics to a remote Prometheus server.
 To view them, you need one of the following:
 
-- your own [Grafana instance](https://grafana.com/oss/grafana) with Prometheus accepting remote writes,
+- your own [Grafana instance](https://grafana.com/oss/grafana) with Prometheus accepting remote writes, which can be deployed with [datalab-industries/datalab-grafana-deployment](https://github.com/datalab-industries/datalab-grafana-deployment),
 - a hosted service such as [Grafana Cloud](https://grafana.com/products/cloud/),
 - access to the central *datalab* Grafana instance. Ask us on Slack or by email.
+
+The central instance is itself deployed from [datalab-industries/datalab-grafana-deployment](https://github.com/datalab-industries/datalab-grafana-deployment), which is a sibling of this repository and follows the same Ansible approach.
 
 To enable monitoring, add the following to your inventory:
 

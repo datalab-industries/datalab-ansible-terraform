@@ -1,3 +1,7 @@
+---
+title: ChemInventory syncing
+---
+
 # ChemInventory syncing
 
 Items from a [ChemInventory](https://www.cheminventory.net/) inventory can be synced into *datalab* on a schedule, using the [datalab-cheminventory-plugin](https://github.com/datalab-industries/datalab-cheminventory-plugin).

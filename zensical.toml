@@ -2,19 +2,35 @@
 # Build with `make docs-build` or preview with `make docs`.
 #
 # Files in `docs/` and this config are overwritten by `sync-ansible-upstream.sh`.
-# Deployment-specific documentation belongs in `CHECKLIST.md` and `deployment-notes/`,
-# which are linked into the rendered site but never synced from upstream.
+# `CHECKLIST.md` is published here but owned by the deployment; `deployment-notes/`
+# is deliberately not published, so deployments can write notes that stay local.
 
 [project]
 site_name = "Deploying datalab"
+site_url = "https://datalab-industries.github.io/datalab-ansible-terraform/"
+site_description = "Ansible playbooks for deploying and maintaining a datalab instance."
+site_author = "datalab industries ltd."
+
+copyright = "Copyright &copy; 2026 datalab industries ltd."
+
 repo_url = "https://github.com/datalab-industries/datalab-ansible-terraform"
+repo_name = "datalab-industries/datalab-ansible-terraform"
+
 docs_dir = "docs"
 site_dir = "site"
+
+# The nav follows the order a deployment happens in: install, configure, deploy,
+# then keep it running. Features and Reference are dropdowns.
+#
+# The Reference pages are generated from the roles' argument specs by `make docs`,
+# but the list below is the source of truth for which roles exist: the generator
+# fails if the two disagree.
 nav = [
-  { "Overview" = "index.md" },
+  { "Home" = "index.md" },
   { "Installation" = "installation.md" },
   { "Configuration" = "configuration.md" },
-  { "Deploying and updating" = "deployment.md" },
+  { "Deploying" = "deployment.md" },
+  { "Updating" = "updating.md" },
   { "Features" = [
     { "Backups" = "backups.md" },
     { "Monitoring" = "monitoring.md" },
@@ -25,18 +41,103 @@ nav = [
     { "Rootless Docker and managed hosts" = "managed-hosts.md" },
     { "Vault password with Bitwarden" = "bitwarden.md" },
   ] },
-  { "This deployment" = [
-    { "About deployment docs" = "project-docs.md" },
-    { "Checklist" = "checklist.md" },
-    { "Deployment notes" = "deployment-notes/index.md" },
+  { "Reference" = [
+    { "Overview" = "reference/index.md" },
+    { "apt_upgrade" = "reference/apt_upgrade.md" },
+    { "bootstrap_probe" = "reference/bootstrap_probe.md" },
+    { "bootstrap_user" = "reference/bootstrap_user.md" },
+    { "borg" = "reference/borg.md" },
+    { "cheminventory" = "reference/cheminventory.md" },
+    { "cron_email" = "reference/cron_email.md" },
+    { "datalab" = "reference/datalab.md" },
+    { "docker" = "reference/docker.md" },
+    { "extras" = "reference/extras.md" },
+    { "fail2ban" = "reference/fail2ban.md" },
+    { "monitoring" = "reference/monitoring.md" },
+    { "nginx" = "reference/nginx.md" },
+    { "preflight" = "reference/preflight.md" },
+    { "setup" = "reference/setup.md" },
+    { "ssh_hardening" = "reference/ssh_hardening.md" },
+    { "ssl_first_run" = "reference/ssl_first_run.md" },
   ] },
+  { "Checklist" = "checklist.md" },
+  { "Your deployment" = "project-docs.md" },
   { "Cloud provisioning (legacy)" = "terraform.md" },
 ]
 
 [project.theme]
+language = "en"
 features = [
   "content.code.copy",
-  "navigation.sections",
+  "content.tooltips",
   "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "navigation.path",
+  "navigation.top",
+  "navigation.tracking",
   "search.highlight",
+  "search.suggest",
+  "toc.follow",
 ]
+
+[project.theme.font]
+text = "Figtree"
+code = "Iosevka Web"
+
+# Amber/brown, to match the main datalab documentation at docs.datalab-org.io.
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "amber"
+accent = "brown"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "amber"
+accent = "brown"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/datalab-industries/datalab-ansible-terraform"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/slack"
+link = "https://join.slack.com/t/datalab-world/shared_invite/zt-2h58ev3pc-VV496~5je~QoT2TgFIwn4g"
+
+# Defaults, plus snippets rooted at the repository so that pages can include
+# real files (e.g. the example inventory) rather than a copy that can drift.
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+toc.permalink = true
+pymdownx.betterem = {}
+pymdownx.caret = {}
+pymdownx.details = {}
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.magiclink = {}
+pymdownx.mark = {}
+pymdownx.smartsymbols = {}
+pymdownx.snippets.base_path = ["."]
+pymdownx.snippets.check_paths = true
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.tabbed.alternate_style = true
+pymdownx.tabbed.combine_header_slug = true
+pymdownx.tasklist.custom_checkbox = true
+pymdownx.tilde = {}

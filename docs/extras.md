@@ -1,6 +1,20 @@
+---
+title: Additional containers
+---
+
 # Additional containers
 
-You can run additional services alongside *datalab* on the same server.
+You can run additional services alongside *datalab* on the same server, behind the same NGINX and certificates.
+
+Things deployments commonly run this way:
+
+- a dashboard built on the *datalab* API, e.g. a live view of a group's samples or instrument usage,
+- a static site, such as group documentation, a lab handbook or a public project page,
+- a small internal app that reads from *datalab*, e.g. a booking sheet or a sample label printer,
+- a [Grafana](https://grafana.com/oss/grafana) instance for your own metrics, if you would rather host it here than centrally (see [Monitoring](monitoring.md)),
+- a supporting service for a plugin, such as a converter or an analysis worker.
+
+Each runs as its own container, so it can be written in whatever language you like, as long as it publishes a port.
 
 1. Add each service as a directory in `./src/extras` (ideally a git submodule) with its own `Dockerfile`, e.g., `./src/extras/service_A/Dockerfile`.
 2. Create `./src/extras/docker-compose.yml` to configure all extras, e.g.:

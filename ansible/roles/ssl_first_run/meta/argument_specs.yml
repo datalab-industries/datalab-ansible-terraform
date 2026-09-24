@@ -9,8 +9,12 @@ argument_specs:
       api_url:
         type: str
         required: true
-        description: The URL where the datalab API is served, included in the certificate request.
+        description:
+          - The URL where the datalab API is served.
+          - Either its own subdomain (e.g. api.example.org), or the app's host with a root path (e.g. example.org/api), in which case nginx serves it as a sublocation and ROOT_PATH must be set in the datalab config.
       app_url:
         type: str
         required: true
-        description: The URL where the datalab web app is served, included in the certificate request.
+        description:
+          - The URL where the datalab web app is served, e.g. example.org.
+          - Also used as the instance label in the monitoring metrics.

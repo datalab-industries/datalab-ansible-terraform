@@ -7,12 +7,12 @@ Changes here reach every deployment that runs `sync-ansible-upstream.sh`, so kee
 
 - Every role declares the variables it accepts in `ansible/roles/<role>/meta/argument_specs.yml`.
   Add new variables there in the same commit that introduces them.
-  Ansible validates the inventory against these specs at the start of each run, and the [role reference](https://datalab-industries.github.io/datalab-ansible-terraform/reference/) pages are generated from them.
+  Ansible validates the inventory against these specs at the start of each run, and the [variable reference](https://datalab-industries.github.io/datalab-ansible-terraform/reference/) is generated from them.
 - Mark an option `required` only if the playbook genuinely cannot run without it.
   A new required option breaks every existing inventory that omits it.
 - Give new features their own tag in `ansible/playbook.yml`, so they can be run with `make <tag>`.
-- A new role also needs an entry under `Reference` in the nav in `zensical.toml`.
-  `make docs` fails if the nav and the roles disagree.
+- A variable used by several roles must be described identically in each.
+  `make docs` fails if two roles describe the same variable differently.
 - `pre-commit run --all-files` runs ansible-lint and the other checks that CI runs.
 
 ## Documentation

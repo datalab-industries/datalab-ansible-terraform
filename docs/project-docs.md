@@ -54,5 +54,5 @@ make docs         # serve with live reload
 make docs-build   # build the static site into ./site
 ```
 
-Both first regenerate the [role reference](reference/index.md) from the roles' argument specs.
+Both first regenerate the [variable reference](reference/index.md) from the roles' argument specs.
 The generated pages are not committed.

@@ -12,6 +12,5 @@ argument_specs:
         type: dict
         required: false
         description:
-          - Additional services to reverse proxy, keyed by service name, each with a
-            url and a port.
+          - Additional services to reverse proxy, keyed by service name, each with a url and a port.
           - The containers themselves are defined in src/extras/docker-compose.yml.

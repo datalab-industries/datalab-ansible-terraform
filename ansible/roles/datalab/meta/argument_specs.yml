@@ -12,17 +12,16 @@ argument_specs:
         required: true
         description:
           - The URL where the datalab API is served.
-          - Either its own subdomain (e.g. api.example.org), or the app's host with a
-            root path (e.g. example.org/api), in which case nginx serves it as a
-            sublocation and ROOT_PATH must be set in the datalab config.
+          - Either its own subdomain (e.g. api.example.org), or the app's host with a root path (e.g. example.org/api), in which case nginx serves it as a sublocation and ROOT_PATH must be set in the datalab config.
       app_url:
         type: str
         required: true
-        description: The URL where the datalab web app is served, e.g. example.org.
+        description:
+          - The URL where the datalab web app is served, e.g. example.org.
+          - Also used as the instance label in the monitoring metrics.
       ansible_user_home_dir:
         type: str
         required: false
         description:
-          - Directory on the host that holds the datalab repository, nginx files and
-            other deployment files.
-          - Defaults to the home directory of ansible_user.
+          - Directory that holds the datalab repository, nginx files and other deployment files.
+          - Defaults to the home directory of ansible_user. Override it for accounts whose home is elsewhere, such as a service account.

@@ -20,11 +20,9 @@ docs_dir = "docs"
 site_dir = "site"
 
 # The nav follows the order a deployment happens in: install, configure, deploy,
-# then keep it running. Features and Reference are dropdowns.
+# then keep it running. Features is a dropdown.
 #
-# The Reference pages are generated from the roles' argument specs by `make docs`,
-# but the list below is the source of truth for which roles exist: the generator
-# fails if the two disagree.
+# The Variables page is generated from the roles' argument specs by `make docs`.
 nav = [
   { "Home" = "index.md" },
   { "Installation" = "installation.md" },
@@ -41,25 +39,7 @@ nav = [
     { "Rootless Docker and managed hosts" = "managed-hosts.md" },
     { "Vault password with Bitwarden" = "bitwarden.md" },
   ] },
-  { "Reference" = [
-    { "Overview" = "reference/index.md" },
-    { "apt_upgrade" = "reference/apt_upgrade.md" },
-    { "bootstrap_probe" = "reference/bootstrap_probe.md" },
-    { "bootstrap_user" = "reference/bootstrap_user.md" },
-    { "borg" = "reference/borg.md" },
-    { "cheminventory" = "reference/cheminventory.md" },
-    { "cron_email" = "reference/cron_email.md" },
-    { "datalab" = "reference/datalab.md" },
-    { "docker" = "reference/docker.md" },
-    { "extras" = "reference/extras.md" },
-    { "fail2ban" = "reference/fail2ban.md" },
-    { "monitoring" = "reference/monitoring.md" },
-    { "nginx" = "reference/nginx.md" },
-    { "preflight" = "reference/preflight.md" },
-    { "setup" = "reference/setup.md" },
-    { "ssh_hardening" = "reference/ssh_hardening.md" },
-    { "ssl_first_run" = "reference/ssl_first_run.md" },
-  ] },
+  { "Variables" = "reference/index.md" },
   { "Checklist" = "checklist.md" },
   { "Your deployment" = "project-docs.md" },
   { "Cloud provisioning (legacy)" = "terraform.md" },

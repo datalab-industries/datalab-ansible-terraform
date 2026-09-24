@@ -37,9 +37,11 @@ If `mount_data_disk` is set, the disk is mounted at `/data`, which is where *dat
 The Borg, Prometheus, `cron_*`, `cheminventory_*` and `extras` settings are described in [Backups](backups.md), [Monitoring](monitoring.md), [Emails for failed cron jobs](cron-email.md), [ChemInventory syncing](cheminventory.md) and [Additional containers](extras.md).
 The `manage_*` and `docker_*` settings are described in [Rootless Docker and managed hosts](managed-hosts.md).
 
-Every variable the playbook accepts is listed in the [role reference](reference/index.md), including the ones most deployments never change.
-Each role declares its variables in its own `meta/argument_specs.yml`, which Ansible validates the inventory against at the start of the run.
-A misspelled or wrongly typed variable therefore fails immediately, with a message naming the role and the variable, rather than part way through the deployment.
+Every variable the playbooks accept is listed under [Variables](reference/index.md), including the ones most deployments never change.
+
+Each role declares its variables in `meta/argument_specs.yml`, and Ansible validates your inventory against those specs at the start of every run, before any task changes the server.
+This happens even under `--check` and when running a single tag, so a missing required setting or a value of the wrong type stops the run immediately, naming the role and the variable.
+Note that a variable whose name is misspelled is not recognised at all, so it is ignored rather than reported.
 
 ## *datalab* configuration
 

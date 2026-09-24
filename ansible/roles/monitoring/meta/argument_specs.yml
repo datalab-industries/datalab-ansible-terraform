@@ -28,7 +28,9 @@ argument_specs:
       app_url:
         type: str
         required: true
-        description: The URL of the web app, used as the instance label.
+        description:
+          - The URL where the datalab web app is served, e.g. example.org.
+          - Also used as the instance label in the monitoring metrics.
       monitoring_cadvisor:
         type: bool
         required: false

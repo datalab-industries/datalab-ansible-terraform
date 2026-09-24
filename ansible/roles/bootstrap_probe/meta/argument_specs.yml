@@ -9,4 +9,6 @@ argument_specs:
       ansible_user:
         type: str
         required: true
-        description: The user that later plays connect as.
+        description:
+          - The user that ansible connects as, and that owns the deployment files on the host.
+          - It is created by the bootstrap play if it does not already exist.

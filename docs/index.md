@@ -49,7 +49,7 @@ Ideally you only provide instance-specific settings such as usernames and domain
 
     Every variable the playbooks accept, and where to put your own documentation.
 
-    [Role reference](reference/index.md) ·
+    [Variables](reference/index.md) ·
     [Documenting your deployment](project-docs.md)
 
 </div>

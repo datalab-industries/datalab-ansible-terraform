@@ -13,16 +13,15 @@ argument_specs:
         required: false
         default: true
         description:
-          - Whether the playbook manages the host system, i.e. bootstrapping the ansible
-            user as root, mounting the data disk, installing system packages and Docker,
-            configuring fail2ban and sshd, and keeping packages up to date.
-          - Set to false on hosts managed externally, where Docker and the Python Docker
-            SDK must already be installed.
+          - Whether the playbook manages the host system, i.e. bootstrapping the ansible user as root, mounting the data disk, installing system packages and Docker, configuring fail2ban and sshd, and keeping packages up to date.
+          - Set to false on hosts managed externally, where Docker and the Python Docker SDK must already be installed.
       manage_nginx:
         type: bool
         required: false
         default: true
-        description: Whether the playbook manages nginx and its TLS certificates.
+        description:
+          - Whether the playbook manages nginx and its TLS certificates.
+          - Set to false when a reverse proxy is managed externally, in which case the app and API containers still publish their ports for it to proxy to, and no certificate renewal is scheduled.
       docker_rootless:
         type: bool
         required: false
@@ -64,7 +63,5 @@ argument_specs:
         type: str
         required: false
         description:
-          - Directory that holds the datalab repository, nginx files and other
-            deployment files.
-          - Defaults to the home directory of ansible_user. Override it for accounts
-            whose home is elsewhere, such as a service account.
+          - Directory that holds the datalab repository, nginx files and other deployment files.
+          - Defaults to the home directory of ansible_user. Override it for accounts whose home is elsewhere, such as a service account.

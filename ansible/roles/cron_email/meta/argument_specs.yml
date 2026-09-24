@@ -44,5 +44,5 @@ argument_specs:
         required: false
         default: true
         description:
-          - Whether the playbook manages the host system.
-          - When false, msmtp is not installed and the existing sendmail is used.
+          - Whether the playbook manages the host system, i.e. bootstrapping the ansible user as root, mounting the data disk, installing system packages and Docker, configuring fail2ban and sshd, and keeping packages up to date.
+          - Set to false on hosts managed externally, where Docker and the Python Docker SDK must already be installed.

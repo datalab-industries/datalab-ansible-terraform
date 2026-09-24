@@ -1,0 +1,21 @@
+---
+argument_specs:
+  main:
+    short_description: Run OS and disk setup tasks
+    description:
+      - Installs the system packages the playbook needs and optionally mounts a data disk at /data.
+      - Skipped when manage_system is false.
+    options:
+      mount_data_disk:
+        type: str
+        required: false
+        description:
+          - Device to mount at /data, e.g. /dev/sdb.
+          - Any fstab source is accepted, so a UUID (e.g. UUID=aaaa-bbbb-cccc) can be
+            used where device names are not stable.
+          - Leave unset to use the root filesystem.
+      data_disk_type:
+        type: str
+        required: false
+        default: xfs
+        description: Filesystem type of the data disk. Only used when mount_data_disk is set.

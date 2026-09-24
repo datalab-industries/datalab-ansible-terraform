@@ -1,0 +1,53 @@
+---
+argument_specs:
+  main:
+    short_description: Schedule syncing of a ChemInventory inventory into datalab
+    description:
+      - Runs the datalab-cheminventory-plugin on a schedule to sync inventory items
+        into datalab.
+      - The role does nothing unless the inventory ID and both API keys are set.
+    options:
+      cheminventory_inventory_id:
+        type: raw
+        required: false
+        description:
+          - Numeric ID of the ChemInventory inventory to sync.
+          - Find it by running the plugin's status command with your ChemInventory API key.
+      cheminventory_api_key:
+        type: str
+        required: false
+        description: ChemInventory API key.
+      cheminventory_datalab_api_key:
+        type: str
+        required: false
+        description: datalab API key used to write the synced items.
+      cheminventory_datalab_api_url:
+        type: str
+        required: false
+        description:
+          - The datalab API that items are synced into.
+          - Defaults to the host's api_url, with https:// added if no scheme is given.
+      cheminventory_cron_frequency:
+        type: str
+        required: false
+        default: 11 6 * * *
+        description: When the sync runs, as a five field cron expression.
+      cheminventory_image:
+        type: str
+        required: false
+        description: Container image of the sync plugin.
+      cheminventory_image_version:
+        type: str
+        required: false
+        description: Version of the plugin image to run.
+      cheminventory_config_dir:
+        type: str
+        required: false
+        description:
+          - Directory holding the env file for the sync.
+          - The API keys are kept there, readable only by the docker user, rather than
+            in the crontab.
+      cheminventory_log_file:
+        type: str
+        required: false
+        description: File holding the output of the most recent sync.

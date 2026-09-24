@@ -1,0 +1,16 @@
+---
+argument_specs:
+  main:
+    short_description: Request the initial TLS certificates with a stripped down nginx
+    description:
+      - Runs a minimal nginx and certbot to obtain the first certificates, before the
+        full nginx configuration is deployed.
+    options:
+      api_url:
+        type: str
+        required: true
+        description: The URL where the datalab API is served, included in the certificate request.
+      app_url:
+        type: str
+        required: true
+        description: The URL where the datalab web app is served, included in the certificate request.

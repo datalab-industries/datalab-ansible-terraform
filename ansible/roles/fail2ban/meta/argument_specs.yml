@@ -1,0 +1,93 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure fail2ban
+    description:
+      - Bans hosts that repeatedly fail to authenticate, using the sshd jail by default.
+      - Skipped when manage_system is false.
+    options:
+      fail2ban_services:
+        type: list
+        elements: dict
+        required: false
+        description: Jails to configure, each with a name and its own options.
+      fail2ban_ignoreips:
+        type: list
+        elements: str
+        required: false
+        default: [127.0.0.1/8]
+        description: Addresses that are never banned.
+      fail2ban_bantime:
+        type: int
+        required: false
+        default: 600
+        description: How long a host is banned, in seconds.
+      fail2ban_maxretry:
+        type: int
+        required: false
+        default: 3
+        description: Number of failures before a host is banned.
+      fail2ban_findtime:
+        type: int
+        required: false
+        default: 600
+        description: Window in which the failures must occur, in seconds.
+      fail2ban_banaction:
+        type: str
+        required: false
+        description: Action used to ban a host, e.g. an iptables or nftables action.
+      fail2ban_action:
+        type: str
+        required: false
+        description: Default action taken when a jail triggers.
+      fail2ban_backend:
+        type: str
+        required: false
+        description: How fail2ban watches log files.
+      fail2ban_chain:
+        type: str
+        required: false
+        description: Firewall chain the ban rules are added to.
+      fail2ban_protocol:
+        type: str
+        required: false
+        description: Protocol the ban rules apply to.
+      fail2ban_loglevel:
+        type: str
+        required: false
+        default: INFO
+        description: Logging level of the fail2ban daemon.
+      fail2ban_logtarget:
+        type: str
+        required: false
+        default: /var/log/fail2ban.log
+        description: Where fail2ban writes its log.
+      fail2ban_syslog_target:
+        type: str
+        required: false
+        description: Syslog target, when logging to syslog.
+      fail2ban_syslog_facility:
+        type: int
+        required: false
+        description: Syslog facility, when logging to syslog.
+      fail2ban_socket:
+        type: str
+        required: false
+        description: Path of the fail2ban control socket.
+      fail2ban_pidfile:
+        type: str
+        required: false
+        description: Path of the fail2ban PID file.
+      fail2ban_destemail:
+        type: str
+        required: false
+        description: Address that ban notifications are sent to.
+      fail2ban_sendername:
+        type: str
+        required: false
+        default: Fail2ban
+        description: Name used as the sender of ban notifications.
+      fail2ban_mta:
+        type: str
+        required: false
+        description: Mail transfer agent used to send notifications.

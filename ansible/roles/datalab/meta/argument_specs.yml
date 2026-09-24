@@ -1,0 +1,28 @@
+---
+argument_specs:
+  main:
+    short_description: Build and launch the datalab API, app and database containers
+    description:
+      - Syncs the datalab source, config and vaults to the host, builds the Docker
+        images and launches the Compose project.
+      - Also schedules the weekly native snapshot backup.
+    options:
+      api_url:
+        type: str
+        required: true
+        description:
+          - The URL where the datalab API is served.
+          - Either its own subdomain (e.g. api.example.org), or the app's host with a
+            root path (e.g. example.org/api), in which case nginx serves it as a
+            sublocation and ROOT_PATH must be set in the datalab config.
+      app_url:
+        type: str
+        required: true
+        description: The URL where the datalab web app is served, e.g. example.org.
+      ansible_user_home_dir:
+        type: str
+        required: false
+        description:
+          - Directory on the host that holds the datalab repository, nginx files and
+            other deployment files.
+          - Defaults to the home directory of ansible_user.

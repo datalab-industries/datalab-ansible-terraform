@@ -1,0 +1,32 @@
+---
+argument_specs:
+  main:
+    short_description: Launch the nginx container with autorenewing certbot certificates
+    description:
+      - Generates the reverse proxy configuration for the app, the API and any extras,
+        and launches nginx with a certbot sidecar that renews the certificates.
+      - Skipped entirely when manage_nginx is false.
+    options:
+      api_url:
+        type: str
+        required: true
+        description: The URL where the datalab API is served, used to generate the proxy rules.
+      app_url:
+        type: str
+        required: true
+        description: The URL where the datalab web app is served, used to generate the proxy rules.
+      extras:
+        type: dict
+        required: false
+        description:
+          - Additional services to reverse proxy, keyed by service name.
+          - Each entry takes a url and a port, which must be published by the
+            container on the host.
+      manage_nginx:
+        type: bool
+        required: false
+        default: true
+        description:
+          - Whether the playbook manages nginx and its TLS certificates.
+          - Set to false when a reverse proxy is managed externally, in which case the
+            app and API containers still publish their ports for it to proxy to.

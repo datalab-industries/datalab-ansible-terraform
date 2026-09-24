@@ -1,0 +1,17 @@
+---
+argument_specs:
+  main:
+    short_description: Build and launch additional containers alongside datalab
+    description:
+      - Syncs src/extras to the host and launches its Compose project, if the directory
+        exists.
+      - Services listed under the extras inventory setting are also reverse proxied by
+        the nginx role.
+    options:
+      extras:
+        type: dict
+        required: false
+        description:
+          - Additional services to reverse proxy, keyed by service name, each with a
+            url and a port.
+          - The containers themselves are defined in src/extras/docker-compose.yml.

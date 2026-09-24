@@ -14,9 +14,7 @@ Use this repository as a template for your own deployment and resync it when new
 ```shell
 git clone --recurse-submodules git@github.com:datalab-industries/datalab-ansible-terraform
 cd datalab-ansible-terraform
-make install-ansible
-uv run ansible-galaxy collection install -r ansible/requirements.yml
-cp ansible/inventory.example.yml ansible/inventory.yml
+make quickstart
 # edit ansible/inventory.yml and ansible/vaults/datalab/*
 make encrypt-vaults
 make

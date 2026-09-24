@@ -13,9 +13,9 @@ For *datalab* settings, see the [*datalab* configuration docs](https://docs.data
 
 ## Initial configuration
 
-- [ ] Clone the repository with submodules and install Ansible (`docs/installation.md`).
+- [ ] Clone the repository with submodules (`docs/installation.md`).
 - [ ] Pin `src/datalab` to the desired *datalab* release.
-- [ ] Copy `ansible/inventory.example.yml` to `ansible/inventory.yml` and fill in the host, `ansible_user`, `app_url` and `api_url` (`docs/configuration.md`).
+- [ ] Run `make quickstart`, then fill in the host, `ansible_user`, `app_url` and `api_url` in `ansible/inventory.yml` (`docs/configuration.md`).
 - [ ] **Optional:** if the API is under a root path on the app's host (e.g., `example.org/api`), set `ROOT_PATH` in `prod_config.json`.
 - [ ] **Optional:** if you do not have root access or use rootless Docker, set the `manage_*` and `docker_*` settings (`docs/managed-hosts.md`).
 - [ ] Set `IDENTIFIER_PREFIX` in `ansible/vaults/datalab/prod_config.json`.

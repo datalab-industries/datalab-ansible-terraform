@@ -36,16 +36,21 @@ We recommend [uv](https://astral.sh/uv) for this, as the [`Makefile`](https://gi
 ```shell
 git clone --recurse-submodules git@github.com:datalab-industries/datalab-ansible-terraform
 cd datalab-ansible-terraform
-make install-ansible
-uv run ansible-galaxy collection install -r ansible/requirements.yml
+make quickstart
 ```
 
-`make install-ansible` is equivalent to:
+`make quickstart` creates the virtual environment, installs Ansible and its collections, and copies `ansible/inventory.example.yml` to `ansible/inventory.yml` for you to edit.
+It is equivalent to:
 
 ```shell
-uv venv --python 3.13
+uv venv --python=3.13
 uv pip install -r requirements.txt
+uv run ansible-galaxy collection install -r ansible/requirements.yml
+cp ansible/inventory.example.yml ansible/inventory.yml
 ```
+
+Running it again is safe: an inventory that already exists is never overwritten.
+`make install-ansible` does the install on its own, without touching the inventory.
 
 If you already cloned the repository without submodules, run:
 

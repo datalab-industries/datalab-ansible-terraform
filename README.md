@@ -16,6 +16,7 @@ git clone --recurse-submodules git@github.com:datalab-industries/datalab-ansible
 cd datalab-ansible-terraform
 make install-ansible
 uv run ansible-galaxy collection install -r ansible/requirements.yml
+cp ansible/inventory.example.yml ansible/inventory.yml
 # edit ansible/inventory.yml and ansible/vaults/datalab/*
 make encrypt-vaults
 make
@@ -24,11 +25,11 @@ make
 ## Documentation
 
 - [`docs/`](docs/index.md): template documentation, published at [datalab-industries.github.io/datalab-ansible-terraform](https://datalab-industries.github.io/datalab-ansible-terraform/). Preview it locally with `make docs`.
-- [`CHECKLIST.md`](CHECKLIST.md): setup and maintenance tasks for your deployment.
-- [`deployment-notes/`](deployment-notes/index.md): notes for your deployment.
+- [`CHECKLIST.md`](CHECKLIST.md): setup and maintenance tasks for your deployment, published with the docs.
+- [`deployment-notes/`](deployment-notes/index.md): Markdown notes for your deployment, kept out of the published site.
 
 `README.md` and `docs/` are overwritten by `sync-ansible-upstream.sh`.
-`CHECKLIST.md` and `deployment-notes/` are not.
+`deployment-notes/` is never touched, and new upstream items in `CHECKLIST.md` are merged into your copy.
 
 The Terraform/OpenTofu plans in `./terraform` are no longer actively supported (see [docs/terraform.md](docs/terraform.md)).
 

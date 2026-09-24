@@ -1,3 +1,7 @@
+---
+title: Cloud provisioning (legacy)
+---
+
 # Cloud provisioning (legacy)
 
 !!! warning

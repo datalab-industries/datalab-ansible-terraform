@@ -1,3 +1,7 @@
+---
+title: Vault password with Bitwarden
+---
+
 # Vault password with Bitwarden
 
 Entering the vault password for every deployment is tedious.

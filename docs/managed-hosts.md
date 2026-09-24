@@ -1,3 +1,7 @@
+---
+title: Rootless Docker and managed hosts
+---
+
 # Rootless Docker and externally managed hosts
 
 By default, the playbook manages the whole server.

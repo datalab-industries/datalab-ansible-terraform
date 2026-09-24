@@ -1,7 +1,9 @@
 # Deployment checklist
 
 This checklist belongs to your deployment.
-It is not overwritten by `sync-ansible-upstream.sh`, so tick items off, remove those that do not apply and add your own.
+Tick items off as you complete them, remove the ones that do not apply, and add your own.
+
+`sync-ansible-upstream.sh` never overwrites it. It merges in any items added upstream, keeping your edits, and tells you if it could not merge them cleanly.
 
 Sections without a label are required for a working instance.
 Sections marked **(optional)** can be skipped, and items marked **Optional:** can be skipped within a required section.
@@ -13,7 +15,7 @@ For *datalab* settings, see the [*datalab* configuration docs](https://docs.data
 
 - [ ] Clone the repository with submodules and install Ansible (`docs/installation.md`).
 - [ ] Pin `src/datalab` to the desired *datalab* release.
-- [ ] Fill in `ansible/inventory.yml` with the host, `ansible_user`, `app_url` and `api_url` (`docs/configuration.md`).
+- [ ] Copy `ansible/inventory.example.yml` to `ansible/inventory.yml` and fill in the host, `ansible_user`, `app_url` and `api_url` (`docs/configuration.md`).
 - [ ] **Optional:** if the API is under a root path on the app's host (e.g., `example.org/api`), set `ROOT_PATH` in `prod_config.json`.
 - [ ] **Optional:** if you do not have root access or use rootless Docker, set the `manage_*` and `docker_*` settings (`docs/managed-hosts.md`).
 - [ ] Set `IDENTIFIER_PREFIX` in `ansible/vaults/datalab/prod_config.json`.
@@ -86,7 +88,7 @@ Without Borg, only *datalab*'s native snapshots are taken, and they are stored o
 ## Monitoring (optional)
 
 - [ ] Set up uptime monitoring, e.g., with [Upptime](https://github.com/upptime/upptime) (`docs/monitoring.md`).
-- [ ] Get access to a Prometheus/Grafana instance that accepts remote writes.
+- [ ] Get access to a Prometheus/Grafana instance that accepts remote writes, e.g. the central *datalab* one, or your own from [datalab-grafana-deployment](https://github.com/datalab-industries/datalab-grafana-deployment).
 - [ ] Set `datalab_prefix`, `prometheus_remote_write_url`, `prometheus_user` and `prometheus_password` in the inventory.
 - [ ] **Optional:** set `monitoring_cadvisor: true` for per-container metrics.
 - [ ] Run `make monitoring` and check that metrics appear in Grafana.
@@ -110,6 +112,11 @@ Without Borg, only *datalab*'s native snapshots are taken, and they are stored o
 ## Ongoing maintenance
 
 - [ ] Run `make maintenance` regularly to update system packages.
-- [ ] Update *datalab* after reading the release notes and checking backups (`docs/deployment.md`).
+- [ ] Update *datalab* after reading the release notes and checking backups (`docs/updating.md`).
 - [ ] Sync with the upstream template with `./sync-ansible-upstream.sh`.
 - [ ] Record changes and incidents in `deployment-notes/`.
+
+## Your own items
+
+Add anything specific to this deployment below, rather than in the sections above.
+Upstream only adds items to its own sections, so keeping yours here means a sync can merge new items without a conflict.

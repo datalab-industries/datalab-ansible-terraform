@@ -1,25 +1,58 @@
+---
+title: Deploying datalab
+hide:
+  - toc
+---
+
 # Deploying *datalab*
 
-This repository contains tools and rules for automatically deploying *datalab* instances with Ansible.
-It can be used as a template for deploying your own *datalab* instance, and can be resynced periodically when new versions are released.
+This repository contains tools and rules for deploying *datalab* instances with Ansible.
+Use it as a template for your own deployment, and resync it when new versions are released.
 
-The Ansible playbooks can set up a *datalab* instance on existing hardware.
-They can also deploy *datalab* on shared hardware.
-All mandatory services run in containers, so the full NGINX and *datalab* stack can run alongside an existing reverse proxy that manages other services.
-You will need to configure this yourself.
+The playbooks can set up *datalab* on existing hardware, including shared hardware.
+All mandatory services run in containers, so the full NGINX and *datalab* stack can run alongside an existing reverse proxy that manages other services, which you configure yourself.
 
 Most of the configuration is transferable between instances.
-Ideally, you only need to provide instance-specific configuration (e.g., usernames, domain names).
-This lets you keep your copy of this repository in sync with the upstream `main` branch, which will continue to change as *datalab*'s requirements change.
+Ideally you only provide instance-specific settings such as usernames and domain names, which lets you keep your copy in sync with this template as *datalab*'s requirements change.
 
-## Contents
+<div class="grid cards" markdown>
 
-- [Installation](installation.md): prerequisites and installing Ansible.
-- [Configuration](configuration.md): the Ansible inventory and *datalab* config vaults.
-- [Deploying and updating](deployment.md): running the playbook and keeping your deployment up to date.
-- [Backups](backups.md), [Monitoring](monitoring.md), [Emails for failed cron jobs](cron-email.md), [ChemInventory syncing](cheminventory.md), [Plugins](plugins.md), [Additional containers](extras.md), [Rootless Docker and managed hosts](managed-hosts.md) and [Bitwarden](bitwarden.md): optional features.
-- [About deployment docs](project-docs.md): where to write documentation for your own deployment.
-- [Cloud provisioning (legacy)](terraform.md): Terraform/OpenTofu plans for Azure. These are no longer actively supported.
+-   __Deploying for the first time__
+
+    Read in order: prerequisites, the inventory and vaults, then the playbook itself.
+
+    [Installation](installation.md) ·
+    [Configuration](configuration.md) ·
+    [Deploying](deployment.md)
+
+-   __Running an instance__
+
+    Keeping *datalab* and the playbooks current, and the tasks that follow a first deployment.
+
+    [Updating](updating.md) ·
+    [Deployment checklist](checklist.md)
+
+-   __Optional features__
+
+    Each stands alone. Add them whenever you need them.
+
+    [Backups](backups.md) ·
+    [Monitoring](monitoring.md) ·
+    [Cron emails](cron-email.md) ·
+    [ChemInventory](cheminventory.md) ·
+    [Plugins](plugins.md) ·
+    [Extra containers](extras.md) ·
+    [Rootless Docker](managed-hosts.md) ·
+    [Bitwarden](bitwarden.md)
+
+-   __Looking something up__
+
+    Every variable the playbooks accept, and where to put your own documentation.
+
+    [Role reference](reference/index.md) ·
+    [Documenting your deployment](project-docs.md)
+
+</div>
 
 ## What gets deployed
 
@@ -54,6 +87,11 @@ Only run the playbook from a clean repository state (i.e., no uncommitted change
 ## Changelog
 
 The changelog for this repository is in the [release notes](https://github.com/datalab-industries/datalab-ansible-terraform/releases) on GitHub.
+
+## Related repositories
+
+- [datalab-org/datalab](https://github.com/datalab-org/datalab): *datalab* itself, included here as a submodule.
+- [datalab-industries/datalab-grafana-deployment](https://github.com/datalab-industries/datalab-grafana-deployment): Ansible deployment for the Grafana and Prometheus instance that collects metrics from *datalab* servers, used with [Monitoring](monitoring.md).
 
 ## Getting help
 

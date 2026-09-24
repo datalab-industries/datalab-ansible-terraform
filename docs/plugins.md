@@ -1,3 +1,7 @@
+---
+title: Plugins
+---
+
 # Plugins
 
 *datalab* supports first-party and third-party plugins (e.g., custom data blocks) that extend the API server.

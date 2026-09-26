@@ -1,0 +1,6 @@
+---
+argument_specs:
+  main:
+    short_description: Check that the host is ready for the playbook
+    description:
+      - Verifies the connection and the state of the host before any changes are made.

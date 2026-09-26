@@ -1,0 +1,56 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure the Prometheus monitoring stack
+    description:
+      - Runs node_exporter and Prometheus on the host, and optionally cAdvisor, sending
+        metrics to a remote Prometheus server.
+      - The role does nothing unless the three prometheus settings are given.
+    options:
+      prometheus_remote_write_url:
+        type: str
+        required: false
+        description: Remote write endpoint of the Prometheus server that collects the metrics.
+      prometheus_user:
+        type: str
+        required: false
+        description: Username for the remote Prometheus server.
+      prometheus_password:
+        type: str
+        required: false
+        description: Password for the remote Prometheus server.
+      datalab_prefix:
+        type: str
+        required: false
+        description:
+          - Label that identifies this instance in the collected metrics.
+          - Defaults to app_url.
+      app_url:
+        type: str
+        required: true
+        description:
+          - The URL where the datalab web app is served, e.g. example.org.
+          - Also used as the instance label in the monitoring metrics.
+      monitoring_cadvisor:
+        type: bool
+        required: false
+        default: false
+        description:
+          - Whether to run cAdvisor for per-container metrics.
+          - It uses noticeably more CPU than the other exporters. When false, any
+            existing cAdvisor container is removed.
+      monitoring_node_exporter_port:
+        type: int
+        required: false
+        default: 9100
+        description: Port for node_exporter. Change it if the host already runs its own exporter.
+      monitoring_prometheus_port:
+        type: int
+        required: false
+        default: 9090
+        description: Port for Prometheus. Change it if the host already runs its own.
+      monitoring_cadvisor_port:
+        type: int
+        required: false
+        default: 8080
+        description: Port for cAdvisor. Change it if the host already runs its own.

@@ -1,0 +1,14 @@
+---
+argument_specs:
+  main:
+    short_description: Check whether the ansible user still needs to be bootstrapped
+    description:
+      - Records the target user and tries to log in as them, so that the bootstrap play
+        is skipped when the account already exists and root SSH has been disabled.
+    options:
+      ansible_user:
+        type: str
+        required: true
+        description:
+          - The user that ansible connects as, and that owns the deployment files on the host.
+          - It is created by the bootstrap play if it does not already exist.

@@ -1,0 +1,20 @@
+---
+argument_specs:
+  main:
+    short_description: Create the non-root ansible user
+    description:
+      - Connects as root to create the target user, grant sudo and copy root's
+        authorized keys across.
+      - A no-op when the target user is root, when the user can already log in, or when
+        manage_system is false.
+    options:
+      ansible_user:
+        type: str
+        required: true
+        description:
+          - The user that ansible connects as, and that owns the deployment files on the host.
+          - It is created by the bootstrap play if it does not already exist.
+      ansible_become_password:
+        type: str
+        required: false
+        description: Password of the created user, where sudo requires one.

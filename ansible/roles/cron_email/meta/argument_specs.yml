@@ -1,0 +1,48 @@
+---
+argument_specs:
+  main:
+    short_description: Email the output of failed cron jobs
+    description:
+      - Configures msmtp as the sendmail for the docker user and sets MAILTO in their
+        crontab, so that failed scheduled jobs are emailed.
+      - The role does nothing when none of the settings are given. Setting only some of
+        them fails the run.
+    options:
+      cron_mailto:
+        type: str
+        required: false
+        description:
+          - Where to send the output of failed cron jobs.
+          - Several addresses can be given, separated by commas, e.g. a team address
+            and an alerting service that accepts email.
+      cron_mail_from:
+        type: str
+        required: false
+        description: The sender address. Its domain must be verified with the SMTP provider.
+      cron_smtp_host:
+        type: str
+        required: false
+        description: The SMTP server that relays the mail, e.g. smtp.resend.com.
+      cron_smtp_user:
+        type: str
+        required: false
+        description: Username for the SMTP server.
+      cron_smtp_password:
+        type: str
+        required: false
+        description: Password for the SMTP server, e.g. an API key.
+      cron_smtp_port:
+        type: int
+        required: false
+        default: 587
+        description:
+          - Port of the SMTP server.
+          - Port 465 uses implicit TLS; any other port uses STARTTLS, which is less
+            often firewalled.
+      manage_system:
+        type: bool
+        required: false
+        default: true
+        description:
+          - Whether the playbook manages the host system, i.e. bootstrapping the ansible user as root, mounting the data disk, installing system packages and Docker, configuring fail2ban and sshd, and keeping packages up to date.
+          - Set to false on hosts managed externally, where Docker and the Python Docker SDK must already be installed.

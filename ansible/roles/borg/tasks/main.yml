@@ -104,6 +104,8 @@
         name: borgmatic
         state: absent
 
+    # As above, bypass the image's init entrypoint: otherwise every run exits
+    # 143 when crond is killed, so cron treats it as failed and mails the log
     - name: Add Cron job for borgmatic
       become: "{{ docker_become }}"
       become_user: "{{ docker_user }}"
@@ -111,4 +113,4 @@
         name: borgmatic
         hour: "2"
         minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
-        job: PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }} timeout 6h docker run --rm --network datalab_backend --name datalab-borgmatic --hostname {{ borg_container_hostname }} -e BORG_HOST_ID={{ borg_container_hostname }} -v {{ borg_config_dir }}/config.yaml:/etc/borgmatic.d/config.yaml -v {{ borg_config_dir }}/.ssh:/root/.ssh -v /data:/data -v {{ borg_cache_dir }}:/root/.cache/borg -v {{ borg_config_dir }}:/borgmatic:ro -v {{ borg_textfile_collector_path }}:/metrics ghcr.io/borgmatic-collective/borgmatic:2 borgmatic -v 1 > {{ docker_user_home_dir }}/last_borgmatic.txt 2>&1 || cat {{ docker_user_home_dir }}/last_borgmatic.txt  # noqa: line-length
+        job: PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }} timeout 6h docker run --rm --network datalab_backend --name datalab-borgmatic --hostname {{ borg_container_hostname }} -e BORG_HOST_ID={{ borg_container_hostname }} -v {{ borg_config_dir }}/config.yaml:/etc/borgmatic.d/config.yaml -v {{ borg_config_dir }}/.ssh:/root/.ssh -v /data:/data -v {{ borg_cache_dir }}:/root/.cache/borg -v {{ borg_config_dir }}:/borgmatic:ro -v {{ borg_textfile_collector_path }}:/metrics --entrypoint borgmatic ghcr.io/borgmatic-collective/borgmatic:2 -v 1 > {{ docker_user_home_dir }}/last_borgmatic.txt 2>&1 || cat {{ docker_user_home_dir }}/last_borgmatic.txt  # noqa: line-length

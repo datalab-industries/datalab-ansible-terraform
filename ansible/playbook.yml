@@ -79,7 +79,7 @@
       when: manage_system
     - role: docker
       name: Install and configure Docker
-      tags: [setup]
+      tags: [setup, docker]
     - role: cron_email
       name: Configure emails for failed cron jobs
       tags: [setup, cron_email]

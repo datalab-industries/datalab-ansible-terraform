@@ -1,4 +1,24 @@
 ---
+# The app image is built from the API image via a `service:` build context, which
+# only resolves reliably with Compose's Bake builder (the default since v2.37.0)
+- name: Check Docker Compose version
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
+  ansible.builtin.command:
+    cmd: docker compose version --short
+  register: docker_compose_version
+  changed_when: false
+  check_mode: false
+
+- name: Require a recent enough Docker Compose
+  ansible.builtin.assert:
+    that: docker_compose_version.stdout | trim | regex_replace('^v', '') is version('2.37.0', '>=')
+    fail_msg: >-
+      Docker Compose {{ docker_compose_version.stdout | trim }} is too old to build datalab (>= 2.37.0 required).
+      Upgrade Docker first, e.g., with `make maintenance`, or ask your server administrator
+      if Docker is managed externally.
+    quiet: true
+
 - name: Sync local datalab submodule with remote
   ansible.posix.synchronize:
     src: "{{ playbook_dir }}/../src/datalab"

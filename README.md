@@ -252,6 +252,18 @@ With `manage_system: false`, the playbook skips bootstrapping, disk mounting, pa
 fail2ban, sshd hardening and upgrades, and only checks that the configured Docker daemon is reachable
 before deploying the *datalab* services.
 
+In this case (or with `docker_rootless: true`), Docker is not installed or upgraded by the playbook,
+so whoever manages the server must keep it reasonably up to date.
+The *datalab* builds require a recent Docker Engine with both the
+[Compose](https://docs.docker.com/compose/install/) (v2.37.0 or newer) and
+[buildx](https://docs.docker.com/build/concepts/overview/#buildx) plugins, as the app image is built
+on top of the API image via a `service:` build context that is only resolved reliably when Compose
+builds with [Bake](https://docs.docker.com/guides/compose-bake/) (the default since Compose v2.37.0).
+Older versions fail when building the app container with
+`failed to solve: invalid reference format`.
+You can check the installed versions with `docker compose version` and `docker buildx version`
+(run as `docker_user` for a rootless daemon).
+
 With `manage_nginx: false`, no nginx or certbot containers are created and no certificate
 renewal is scheduled. The app and API containers still publish their ports (8081 and 5001),
 so an externally managed reverse proxy can be pointed at them; it is then responsible for TLS
@@ -300,6 +312,17 @@ be careful to review these changes before committing them to your fork,
 especially if you have made any custom changes to the playbooks.
 Be sure to also commit the changes to your submodule so you know precisely which versions
 of the playbooks are running.
+
+System packages, including Docker, are only upgraded by the `maintenance` tag
+(`make maintenance`), which is worth running regularly and before deploying a new
+*datalab* version, as the builds need a recent Docker Compose (see
+[Rootless docker and externally managed hosts](#rootless-docker-and-externally-managed-hosts)).
+The Docker apt repository itself is configured by the `docker` tag (`make docker`).
+Deployments created with older versions of these playbooks used a Docker apt repository
+pinned to Ubuntu 20.04 (focal), which no longer receives updates, so Docker on those
+servers may be stuck on an old version: run `make docker` followed by `make maintenance`
+to switch to the repository for the server's actual Ubuntu release and upgrade Docker.
+Note that upgrading Docker restarts the Docker daemon, and with it all containers.
 
 The [`Makefile`](Makefile) also contains a number of other useful commands, such as:
 

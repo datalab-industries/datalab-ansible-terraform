@@ -33,6 +33,8 @@ Attempts will be made to tabulate the supported versions of datalab with each re
 | v0.6.x | v0.6.x |
 | v0.7.x | v0.7.x-rc.x |
 | v0.8.x | v0.7.x |
+| v0.9.x | v0.7.x |
+| v0.10.x | v0.8.x-alpha.x |
 
 </div>
 

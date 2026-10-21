@@ -128,25 +128,43 @@
     images: true
     containers: true
 
-- name: Build and launch database container
+# docker_compose_v2's `pull` option only applies to service images, not the base
+# images of built services, so build explicitly with --pull to pick up updates to
+# floating base image tags (e.g. mongo:8-noble). The launch tasks below then use
+# these images rather than rebuilding.
+- name: Build datalab images, pulling latest base images
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
+  ansible.builtin.command:
+    cmd: >-
+      docker compose --profile prod
+      --env-file pydatalab/.env
+      --env-file webapp/.env
+      --env-file .env_version
+      build --pull database api app
+    chdir: "{{ ansible_user_home_dir }}/datalab"
+  # Container recreation is reported by the launch tasks below
+  changed_when: false
+
+- name: Launch database container
   become: "{{ docker_become }}"
   become_user: "{{ docker_user }}"
   community.docker.docker_compose_v2:
     project_src: "{{ ansible_user_home_dir }}/datalab"
     profiles: prod
     services: database
-    build: always
+    build: never
     wait: true
     wait_timeout: 300
 
-- name: Build and launch API container
+- name: Launch API container
   become: "{{ docker_become }}"
   become_user: "{{ docker_user }}"
   community.docker.docker_compose_v2:
     project_src: "{{ ansible_user_home_dir }}/datalab"
     profiles: prod
     services: api
-    build: always
+    build: never
     wait: true
     wait_timeout: 300
     env_files:
@@ -205,14 +223,14 @@
     label: "{{ item.source | basename }}"
   no_log: true
 
-- name: Build and launch app container
+- name: Launch app container
   become: "{{ docker_become }}"
   become_user: "{{ docker_user }}"
   community.docker.docker_compose_v2:
     project_src: "{{ ansible_user_home_dir }}/datalab"
     profiles: prod
     services: app
-    build: always
+    build: never
     wait: true
     wait_timeout: 300
     env_files:

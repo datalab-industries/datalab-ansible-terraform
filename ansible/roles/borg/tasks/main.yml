@@ -75,6 +75,7 @@
         name: ghcr.io/borgmatic-collective/borgmatic:2
         source: pull
         state: present
+        force_source: true
 
     # Run in the foreground so failures surface; borgmatic skips creation and
     # says so if the repository already exists. The image's init entrypoint is

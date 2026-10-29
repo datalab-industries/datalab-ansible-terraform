@@ -19,12 +19,74 @@
       if Docker is managed externally.
     quiet: true
 
-- name: Sync local datalab submodule with remote
-  ansible.posix.synchronize:
-    src: "{{ playbook_dir }}/../src/datalab"
-    dest: "{{ ansible_user_home_dir }}"
-    recursive: true
-    delete: false
+# Local patches in src/patches/datalab/*.patch are applied to a temporary copy of the
+# submodule, which is synced instead, so that src/datalab itself is never modified.
+# Any patch that does not apply cleanly fails the play before anything is synced.
+- name: Check for local datalab patches folder
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../src/patches/datalab"
+  register: datalab_patches_dir
+  delegate_to: localhost
+
+- name: Find local datalab patches
+  when: datalab_patches_dir.stat.isdir is defined and datalab_patches_dir.stat.isdir
+  ansible.builtin.find:
+    paths: "{{ playbook_dir }}/../src/patches/datalab"
+    patterns: "*.patch"
+  register: datalab_patches
+  delegate_to: localhost
+
+- name: Set fact for whether datalab is patched
+  ansible.builtin.set_fact:
+    datalab_is_patched: "{{ (datalab_patches.matched | default(0)) > 0 }}"
+
+- name: Sync datalab to remote, via a patched local copy if there are patches
+  block:
+    - name: Stage a patched copy of the datalab submodule
+      when: datalab_is_patched
+      delegate_to: localhost
+      block:
+        - name: Create local staging directory for patched datalab
+          ansible.builtin.tempfile:
+            state: directory
+            suffix: -datalab-patched
+          register: datalab_staging
+
+        # .git is excluded as the submodule's gitfile does not resolve from the copy;
+        # synchronize cannot be used for this local-to-local copy, as when delegated to
+        # localhost it syncs to the inventory host instead
+        - name: Copy datalab submodule into staging directory  # noqa: command-instead-of-module
+          ansible.builtin.command:
+            cmd: rsync -a --exclude .git "{{ playbook_dir }}/../src/datalab" "{{ datalab_staging.path }}/"
+          changed_when: true
+
+        - name: Apply local patches to staged datalab
+          ansible.builtin.command:
+            cmd: "{{ playbook_dir }}/../apply-patches.sh datalab"
+            chdir: "{{ playbook_dir }}/.."
+          environment:
+            SOURCE_ROOT: "{{ datalab_staging.path }}"
+          register: datalab_patch_output
+          changed_when: "'Applied' in datalab_patch_output.stdout"
+
+        - name: Show applied datalab patches
+          ansible.builtin.debug:
+            var: datalab_patch_output.stdout_lines
+
+    - name: Sync local datalab submodule with remote
+      ansible.posix.synchronize:
+        src: "{{ (datalab_staging.path + '/datalab') if datalab_is_patched else (playbook_dir + '/../src/datalab') }}"
+        dest: "{{ ansible_user_home_dir }}"
+        recursive: true
+        delete: false
+
+  always:
+    - name: Remove local staging directory for patched datalab
+      when: datalab_staging.path is defined
+      ansible.builtin.file:
+        path: "{{ datalab_staging.path }}"
+        state: absent
+      delegate_to: localhost
 
 - name: Check for plugin folder
   ansible.builtin.stat:

@@ -1,3 +1,4 @@
+<!-- This file was edited with the assistance of an AI model and requires human review from the contributor. -->
 # <div align="center">Deploying <i>datalab</i></div>
 
 <div align="center">
@@ -339,6 +340,33 @@ make list
 ```
 
 to list all of the available Ansible tags that can be run individually.
+
+#### Managing multiple deployments
+
+If you manage several deployments (each its own fork of this repository), [`tools/dlmeta`](tools/dlmeta) gives an overview of them and can run commands across them.
+It only needs [uv](https://astral.sh/uv), and lives in `tools/` as it is not part of a deployment, so it is not copied by `sync-ansible-upstream.sh`.
+Link it somewhere on your `PATH`, then tell it where your deployments are by copying [`tools/dlmeta.example.toml`](tools/dlmeta.example.toml) to `~/.config/dlmeta/config.toml`:
+
+```shell
+ln -s "$PWD/tools/dlmeta" ~/.local/bin/dlmeta
+dlmeta status  # table of local, deployed and live versions, last runs and maintenance
+dlmeta         # the same as an interactive TUI, which can also bump and deploy
+```
+
+To run a command in several deployments, use `dlmeta run`, which lists what it will do and asks for confirmation first:
+
+```shell
+dlmeta run -- make maintenance
+dlmeta run --only 'demo-*' --exclude demo-old -- make deploy
+```
+
+Up to 8 deployments run at a time, with a live summary and a tab streaming each deployment's output.
+A failure does not stop the others, so to roll out a risky change gradually, select a few deployments first with `--only`.
+Deployments where the ledger shows that `make maintenance` (or a whole-playbook run) succeeded in the last day are skipped.
+Use `--rerun-after` to change that window (e.g., `12h`, `1w`, or `0` to always run), or to apply one to other targets, e.g., `dlmeta run --rerun-after 1h -- make deploy`.
+Press `x` to start no more deployments, or `q` twice to interrupt those running. Closing the terminal may also kill them, so use `tmux` or similar for long runs that you may need to leave.
+Anything that needs a prompt (e.g., a vault password when `rbw` has no entry) fails rather than waits.
+Logs for each run are kept in `~/.local/state/dlmeta/logs`.
 
 #### Installing *datalab* plugins
 

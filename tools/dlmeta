@@ -1,0 +1,1360 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["textual>=8", "packaging"]
+# ///
+# This file was edited with the assistance of an AI model and requires human review from the contributor.
+"""dlmeta — overview and updating of all datalab deployment repos.
+
+  dlmeta              interactive TUI (same as `dlmeta tui`)
+  dlmeta tui [--to REF]
+  dlmeta status       table of every deployment (local state + ledger + last probe)
+  dlmeta run          run a command in several deployments, e.g. `dlmeta run -- make maintenance`
+  dlmeta discover     read each repo's api_url from its encrypted inventory (needs rbw)
+  dlmeta probe        query each deployment's public /info endpoint for its live version
+  dlmeta dashboard    write dashboard.html (runs `probe` first unless --no-probe)
+
+Configuration is read from $DLMETA_CONFIG (default ~/.config/dlmeta/config.toml, see
+dlmeta.example.toml). Deployments are the repos with an ansible/playbook.yml listed under
+`deployments`, each entry being either a repo or a folder of repos (default
+~/repos/datalab/deployments, overridden by $DLMETA_DEPLOYMENTS_DIR). Deployments listed under
+[inactive] are hidden unless asked for.
+
+State is kept in $DLMETA_STATE_DIR (or `state_dir` in the config, default ~/.local/state/dlmeta):
+deploy records come from the deployment_ledger callback (runs/<repo>.jsonl), probe results are
+appended to runs/_probes.jsonl, discovered URLs are cached in deployments.json and the output of
+`dlmeta run` is written to logs/.
+"""
+
+from __future__ import annotations
+
+import argparse
+import collections
+import concurrent.futures
+import datetime
+import fnmatch
+import functools
+import html
+import json
+import os
+import re
+import select
+import shutil
+import signal
+import subprocess
+import sys
+import threading
+import time
+import tomllib
+import urllib.request
+from pathlib import Path
+
+# Use the terminal's own colours in the TUIs (or set TEXTUAL_THEME, e.g., to ansi-light)
+os.environ.setdefault("TEXTUAL_THEME", "ansi-dark")
+# Textual gives table headers a fixed bright blue background under those themes
+TABLE_CSS = "DataTable:ansi > .datatable--header { background: ansi_default; }"
+
+ROOT = Path(__file__).resolve().parent
+CONFIG =Path(os.environ.get("DLMETA_CONFIG")
+              or Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "dlmeta" / "config.toml").expanduser()
+
+
+def config() -> dict:
+    return tomllib.loads(CONFIG.read_text()) if CONFIG.exists() else {}
+
+
+STATE = Path(os.environ.get("DLMETA_STATE_DIR") or config().get("state_dir")
+             or Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state") / "dlmeta").expanduser()
+RUNS = STATE / "runs"
+LOGS = STATE / "logs"
+PROBES = RUNS / "_probes.jsonl"
+URLS = STATE / "deployments.json"
+# Enabled for every command dlmeta runs in a deployment, so that the run is recorded in the ledger
+LEDGER_PLUGIN = ROOT / "callback_plugins" / "deployment_ledger.py"
+PROBE_TIMEOUT = 5
+# Deployments that `dlmeta run` works on at a time
+RUN_JOBS = 8
+# `dlmeta run -- make maintenance` skips deployments that succeeded more recently than this (seconds)
+MAINTENANCE_RERUN_AFTER = 24 * 3600
+# Per-repo limit for decrypting an inventory during `discover`
+DISCOVER_TIMEOUT = 30
+# `status` and the TUI re-probe deployments whose last probe is older than this (seconds)
+PROBE_MAX_AGE = 15 * 60
+# Release tags are tracked for the datalab submodule and the ansible-terraform rules submodule:
+# kind -> (upstream remote, submodule path, tag cache, config section of flagged versions)
+SOURCES = {
+    "datalab": ("https://github.com/datalab-org/datalab", "src/datalab", RUNS / "_tags.json", "flagged"),
+    "rules": ("https://github.com/datalab-industries/datalab-ansible-terraform", "src/datalab-ansible-terraform",
+              RUNS / "_rules_tags.json", "flagged_rules"),
+}
+TAGS_MAX_AGE = 3600
+# Last runs/maintenance younger than these (days) are shown green, then yellow, then red
+AGE_OK_DAYS, AGE_WARN_DAYS = 30, 90
+# Runs with these tags count as maintenance (package upgrades, incl. Docker, only run under the
+# `maintenance` tag or a whole-playbook run, recorded with tags ["all"])
+MAINTENANCE_TAGS = {"all", "maintenance"}
+SORT_KEYS = {
+    "name": lambda r: r["deployment"],
+    # never-maintained first, then oldest maintenance first
+    "maintenance": lambda r: r["last_maintenance"] or "",
+    "run": lambda r: r["last_run"] or "",
+}
+
+
+def _now() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+
+
+def _read_jsonl(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+
+def _git(repo: Path, *args: str) -> str | None:
+    try:
+        return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True,
+                              check=True, timeout=30).stdout.strip()
+    except (subprocess.SubprocessError, OSError):
+        return None
+
+
+def _repo_env() -> dict[str, str]:
+    """Environment for commands run inside a deployment repo."""
+    # dlmeta itself runs in a uv script environment, whose VIRTUAL_ENV would otherwise make
+    # `uv run` look for ansible there rather than in the deployment repo's own .venv
+    env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV" and not k.startswith("UV_")}
+    if venv := os.environ.get("VIRTUAL_ENV"):
+        env["PATH"] = os.pathsep.join(p for p in env.get("PATH", "").split(os.pathsep) if p != str(Path(venv) / "bin"))
+    # The callback otherwise writes next to wherever it is installed
+    env["DEPLOYMENT_LEDGER_DIR"] = str(RUNS)
+    if LEDGER_PLUGIN.is_file():
+        env["ANSIBLE_CALLBACK_PLUGINS"] = os.pathsep.join(
+            filter(None, (str(LEDGER_PLUGIN.parent), env.get("ANSIBLE_CALLBACK_PLUGINS"))))
+        env["ANSIBLE_CALLBACKS_ENABLED"] = ",".join(
+            filter(None, (LEDGER_PLUGIN.stem, env.get("ANSIBLE_CALLBACKS_ENABLED"))))
+    return env
+
+
+def ensure_rbw() -> None:
+    if shutil.which("rbw") and subprocess.run(["rbw", "unlocked"], capture_output=True).returncode != 0:
+        subprocess.run(["rbw", "unlock"])
+
+
+# --- Local repo state --------------------------------------------------------------------
+
+
+def inactive() -> dict[str, str]:
+    """Deployment name -> reason, for deployments marked inactive in the config."""
+    return config().get("inactive", {})
+
+
+def _is_deployment(path: Path) -> bool:
+    return (path / "ansible" / "playbook.yml").is_file()
+
+
+def deployment_roots() -> list[Path]:
+    """The configured locations of deployments, each either a repo or a folder of repos."""
+    override = os.environ.get("DLMETA_DEPLOYMENTS_DIR")
+    roots = [override] if override else config().get("deployments", ["~/repos/datalab/deployments"])
+    return [Path(root).expanduser() for root in roots]
+
+
+@functools.cache
+def _warn_once(message: str) -> None:
+    print(f"dlmeta: {message}", file=sys.stderr)
+
+
+def deployment_repos(include_inactive: bool = False) -> list[Path]:
+    hidden = {} if include_inactive else inactive()
+    repos: dict[str, Path] = {}
+    for root in deployment_roots():
+        if not root.is_dir():
+            _warn_once(f"configured deployment location {root} does not exist")
+            continue
+        for path in [root] if _is_deployment(root) else sorted(root.iterdir()):
+            if not _is_deployment(path) or path.name in hidden:
+                continue
+            # The ledger, probes and URLs are all keyed by the repo's folder name
+            if path.name in repos and repos[path.name].resolve() != path.resolve():
+                _warn_once(f"ignoring {path}, {repos[path.name]} has the same name")
+                continue
+            repos[path.name] = path
+    return sorted(repos.values(), key=lambda path: path.name)
+
+
+def _matches(name: str, patterns: list[str]) -> bool:
+    return any(fnmatch.fnmatchcase(n, p) for p in patterns for n in (name, name.removesuffix("-deployment")))
+
+
+def select_repos(only: list[str], exclude: list[str], include_inactive: bool = False) -> list[Path]:
+    """Filter deployments by name or glob, with or without the -deployment suffix.
+
+    A pattern that matches nothing is an error, as a mistyped exclusion would otherwise
+    run the command on the deployment that was meant to be left out.
+    """
+    known = deployment_repos(include_inactive=True)
+    for pattern in [*only, *exclude]:
+        if not any(_matches(r.name, [pattern]) for r in known):
+            sys.exit(f"dlmeta: no deployment matches {pattern!r}")
+    return [r for r in deployment_repos(include_inactive)
+            if (not only or _matches(r.name, only)) and not _matches(r.name, exclude)]
+
+
+def local_state(repo: Path) -> dict:
+    submodule = repo / "src" / "datalab"
+    rules = repo / "src" / "datalab-ansible-terraform"
+    status = _git(repo, "status", "--porcelain") or ""
+    # sync-ansible-upstream.sh copies rules/ansible over ansible/ (except vaults and the inventory)
+    # without deleting anything, so files only present locally (leftovers, group_vars) are expected;
+    # changed files, or upstream files missing locally, mean local changes that are not upstream
+    rules_differ = None
+    if (rules / "ansible").is_dir():
+        diff = subprocess.run(
+            ["diff", "-rq", "--exclude=vaults", "--exclude=inventory.yml", "--exclude=__pycache__",
+             str(rules / "ansible"), str(repo / "ansible")], capture_output=True, text=True).stdout
+        rules_differ = any(not line.startswith(f"Only in {repo / 'ansible'}") for line in diff.splitlines())
+    return {
+        "deployment": repo.name,
+        "path": str(repo),
+        "local_version": _git(submodule, "describe", "--tags", "--match", "v*"),
+        "local_commit": (_git(submodule, "rev-parse", "HEAD") or "")[:8],
+        "ansible_version": _git(rules, "describe", "--tags", "--dirty") if rules.is_dir() else None,
+        "ansible_local_changes": rules_differ,
+        "uncommitted": [line[3:] for line in status.splitlines()],
+        "vault_pass": (repo / ".vault-pass.sh").is_file(),
+        "makefile": (repo / "Makefile").is_file(),
+        "inactive": inactive().get(repo.name),
+    }
+
+
+def bump(repo: Path, ref: str) -> str:
+    """Check out `ref` in the repo's datalab submodule, fetching tags first."""
+    submodule = repo / "src" / "datalab"
+    fetch = subprocess.run(["git", "-C", str(submodule), "fetch", "--tags", "--quiet", "origin"],
+                           capture_output=True, text=True, timeout=120)
+    checkout = subprocess.run(["git", "-C", str(submodule), "checkout", "--quiet", ref],
+                              capture_output=True, text=True, timeout=60)
+    if checkout.returncode != 0:
+        return f"failed: {(checkout.stderr or fetch.stderr).strip().splitlines()[-1] if (checkout.stderr or fetch.stderr).strip() else 'unknown error'}"
+    note = " (fetch failed, used local tags)" if fetch.returncode != 0 else ""
+    return f"now at {_git(submodule, 'describe', '--tags', '--match', 'v*')}{note}"
+
+
+# --- Ledger ------------------------------------------------------------------------------
+
+
+def load_runs() -> dict[str, list[dict]]:
+    """Merge start/finish records into one dict per run, oldest first, per deployment."""
+    deployments = {}
+    for path in sorted(RUNS.glob("*.jsonl")):
+        if path.name.startswith("_"):
+            continue
+        runs: dict[str, dict] = {}
+        for record in _read_jsonl(path):
+            run = runs.setdefault(record["run_id"], {"status": "incomplete"})
+            if record["event"] == "start":
+                run.update(record, started=record["time"])
+            else:
+                run.update(status=record["status"], finished=record["time"],
+                           stats=record.get("stats", {}), hosts=record.get("hosts", {}))
+        deployments[path.stem] = sorted(runs.values(), key=lambda r: r.get("started", ""))
+    return deployments
+
+
+def ledger_summary(runs: list[dict]) -> dict:
+    last = runs[-1] if runs else {}
+    successful = [r for r in runs if r["status"] == "success"]
+    last_ok = successful[-1] if successful else {}
+    deploys = [r for r in successful if {"deploy", "all", "setup"} & set(r.get("tags") or ["all"])]
+    maintenance = [r for r in successful if MAINTENANCE_TAGS & set(r.get("tags") or ["all"])]
+    return {
+        "last_run": last.get("started"),
+        "last_run_status": last.get("status"),
+        "last_run_tags": ",".join(last.get("tags") or []),
+        "last_success": last_ok.get("started"),
+        "deployed_version": deploys[-1].get("datalab_version") if deploys else None,
+        "last_deploy": deploys[-1]["started"] if deploys else None,
+        "last_maintenance": maintenance[-1]["started"] if maintenance else None,
+        "commit": (last_ok.get("commit") or "")[:8],
+        "dirty_files": last_ok.get("dirty_files") or [],
+        "hosts": {h: i for r in successful for h, i in (r.get("hosts") or {}).items()},
+    }
+
+
+# --- Discovery and probing ---------------------------------------------------------------
+
+
+def load_urls() -> dict[str, dict]:
+    return json.loads(URLS.read_text()) if URLS.exists() else {}
+
+
+def discover(repo: Path) -> dict:
+    """Read api_url/app_url for each host from the repo's (vault-encrypted) inventory."""
+    if not (repo / ".vault-pass.sh").is_file():
+        return {"error": "no .vault-pass.sh"}
+    venv_bin = repo / ".venv" / "bin" / "ansible-inventory"
+    command = [str(venv_bin)] if venv_bin.is_file() else ["uv", "run", "ansible-inventory"]
+    # No stdin: .vault-pass.sh falls back to `read`-ing a password when rbw has no entry, which
+    # would otherwise wait invisibly on the terminal
+    try:
+        proc = subprocess.run(
+            [*command, "-i", "ansible/inventory.yml", "--list", "--vault-password-file=./.vault-pass.sh"],
+            cwd=repo, env=_repo_env(), stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            timeout=DISCOVER_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return {"error": f"timed out after {DISCOVER_TIMEOUT}s"}
+    if proc.returncode != 0:
+        if any(m in proc.stderr for m in ("Decryption failed", "Invalid vault password", "no vault secrets")):
+            return {"error": "could not decrypt the inventory (no rbw entry for this repo?)"}
+        return {"error": (proc.stderr.strip().splitlines() or ["ansible-inventory failed"])[-1][:200]}
+    hostvars = json.loads(proc.stdout).get("_meta", {}).get("hostvars", {})
+    hosts = {h: {k: v[k] for k in ("api_url", "app_url") if isinstance(v.get(k), str)} for h, v in hostvars.items()}
+    return {"hosts": hosts, "discovered": _now()}
+
+
+def save_discovered(results: dict[str, dict]) -> None:
+    urls = load_urls()
+    for name, result in results.items():
+        if "hosts" in result:
+            urls[name] = result
+    URLS.write_text(json.dumps(urls, indent=2, sort_keys=True) + "\n")
+
+
+def api_url_for(name: str, ledger: dict | None = None) -> str | None:
+    hosts = (load_urls().get(name) or {}).get("hosts") or (ledger or {}).get("hosts") or {}
+    urls = sorted(i["api_url"] for i in hosts.values() if i.get("api_url"))
+    return urls[-1] if urls else None
+
+
+def probe_one(name: str, api_url: str) -> dict:
+    url = (api_url if "://" in api_url else f"https://{api_url}").rstrip("/") + "/info"
+    record = {"deployment": name, "time": _now(), "url": url}
+    try:
+        with urllib.request.urlopen(url, timeout=PROBE_TIMEOUT) as resp:
+            record.update(ok=True, server_version=json.load(resp)["meta"]["server_version"])
+    except Exception as exc:
+        record.update(ok=False, error=f"{type(exc).__name__}: {exc}"[:200])
+    with PROBES.open("a") as out:
+        out.write(json.dumps(record, sort_keys=True) + "\n")
+    return record
+
+
+def latest_probes() -> dict[str, dict]:
+    return {r["deployment"]: r for r in _read_jsonl(PROBES)}
+
+
+def release_tags(kind: str = "datalab", refresh: bool = False) -> list[str]:
+    """Release tags for `kind` (see SOURCES), from the upstream remote (cached for an hour),
+    else from the local submodules."""
+    remote, submodule, cache, _ = SOURCES[kind]
+    if not refresh and cache.exists():
+        cached = json.loads(cache.read_text())
+        age = datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(cached["time"])
+        if age.total_seconds() < TAGS_MAX_AGE:
+            return cached["tags"]
+    try:
+        out = subprocess.run(["git", "ls-remote", "--tags", "--refs", remote, "v*"],
+                             capture_output=True, text=True, check=True, timeout=15).stdout
+        tags = sorted({line.rsplit("refs/tags/", 1)[-1] for line in out.splitlines()})
+        RUNS.mkdir(exist_ok=True)
+        cache.write_text(json.dumps({"time": _now(), "tags": tags}))
+        return tags
+    except (subprocess.SubprocessError, OSError):
+        if cache.exists():
+            return json.loads(cache.read_text())["tags"]
+        tags = set()
+        for repo in deployment_repos(include_inactive=True):
+            tags.update((_git(repo / submodule, "tag", "--list", "v*") or "").split())
+        return sorted(tags)
+
+
+def _parse(version: str):
+    from packaging.version import InvalidVersion, Version
+
+    try:
+        return Version(_normalise(version))
+    except InvalidVersion:
+        return None
+
+
+def latest_in_tracks(tags: list[str], by_track: bool = True) -> dict[tuple, object]:
+    """Newest version per major.minor track (pre-releases included, e.g. 0.8.0a1 for 0.8), or
+    with by_track=False a single newest version (key ()) for repos without maintained release lines."""
+    latest: dict[tuple, object] = {}
+    for tag in tags:
+        v = _parse(tag)
+        if v is not None:
+            track = v.release[:2] if by_track else ()
+            if track not in latest or v > latest[track]:
+                latest[track] = v
+    return latest
+
+
+def flagged_reason(version: str, kind: str = "datalab") -> str | None:
+    """Reason from the config's [flagged] (or [flagged_rules]) if `version` matches one of its specifiers."""
+    from packaging.specifiers import InvalidSpecifier, SpecifierSet
+
+    v = _parse(version)
+    if v is None:
+        return None
+    for spec, reason in config().get(SOURCES[kind][3], {}).items():
+        try:
+            if SpecifierSet(spec).contains(v, prereleases=True):
+                return reason
+        except InvalidSpecifier:
+            if _normalise(spec) == _normalise(version):
+                return reason
+    return None
+
+
+def version_verdict(version: str | None, target: str | None, tracks: dict,
+                    kind: str = "datalab") -> tuple[str, str | None]:
+    """(rich style, note) for a version: flagged > target match > latest in its track."""
+    if not version:
+        return "dim", None
+    reason = flagged_reason(version, kind)
+    if reason:
+        return "bold red", reason
+    if target:
+        return ("green", None) if _normalise(version) == _normalise(target) else ("yellow", f"not {target}")
+    v = _parse(version)
+    latest = (tracks.get(v.release[:2]) or tracks.get(())) if v is not None else None
+    if latest is None:
+        return "", None
+    return ("green", None) if v >= latest else ("yellow", f"{latest} available")
+
+
+def _canonical(version: str) -> str:
+    """Turn the forms servers report back into `git describe` form, e.g.
+    0.8.0+alpha.1.6.gae3c005a -> 0.8.0-alpha.1-6-gae3c005a and 0.7.5+66.g7531edb2 -> 0.7.5-66-g7531edb2."""
+    m = re.fullmatch(r"v?(\d+(?:\.\d+)*)\+(.+)", version)
+    if not m:
+        return version
+    local = re.sub(r"\.(\d+)\.g([0-9a-f]+)$", r"-\1-g\2", m[2])
+    local = re.sub(r"^(\d+)\.g([0-9a-f]+)$", r"\1-g\2", local)
+    return f"{m[1]}-{local}"
+
+
+def _normalise(version: str) -> str:
+    """Rough match between `git describe` (v0.8.0-alpha.1-6-gae3c005a) and PEP 440 versions."""
+    v = _canonical(version).lstrip("v").replace("-alpha.", "a").replace("-beta.", "b").replace("-rc.", "rc").replace("-rc", "rc")
+    return v.split("+")[0].split("-")[0].split(".dev")[0]
+
+
+def full_state(repo: Path, runs: dict | None = None, probes: dict | None = None) -> dict:
+    runs = load_runs() if runs is None else runs
+    probes = latest_probes() if probes is None else probes
+    state = local_state(repo)
+    ledger = ledger_summary(runs.get(repo.name, []))
+    probe = probes.get(repo.name)
+    state.update(ledger)
+    state["api_url"] = api_url_for(repo.name, ledger)
+    state["live_version"] = probe.get("server_version") if probe and probe.get("ok") else None
+    state["probe_error"] = probe.get("error") if probe and not probe.get("ok") else None
+    state["probe_time"] = probe.get("time") if probe else None
+    return state
+
+
+# --- CLI commands ------------------------------------------------------------------------
+
+
+def discover_all(repos: list[Path], report) -> dict[str, dict]:
+    """Run `discover` for each repo in parallel, calling report(name, result) as each finishes."""
+    results = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(discover, repo): repo.name for repo in repos}
+        for future in concurrent.futures.as_completed(futures):
+            name = futures[future]
+            results[name] = future.result()
+            report(name, results[name])
+    save_discovered(results)
+    return results
+
+
+def _discover_summary(result: dict) -> str:
+    if "error" in result:
+        return f"skipped: {result['error']}"
+    return ", ".join(filter(None, (i.get("api_url") for i in result["hosts"].values()))) or "no api_url"
+
+
+def cmd_discover(_args) -> None:
+    subprocess.run(["rbw", "unlocked"], capture_output=True).returncode == 0 or subprocess.run(["rbw", "unlock"])
+    discover_all(deployment_repos(), lambda name, r: print(f"{name}: {_discover_summary(r)}", flush=True))
+
+
+def stale_probe_targets(states: list[dict]) -> dict[str, str]:
+    """Deployments with a known api_url whose last probe is missing or older than PROBE_MAX_AGE."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    return {
+        s["deployment"]: s["api_url"] for s in states
+        if s["api_url"] and (not s["probe_time"] or
+                             (now - datetime.datetime.fromisoformat(s["probe_time"])).total_seconds() > PROBE_MAX_AGE)
+    }
+
+
+def probe_many(targets: dict[str, str], report=lambda r: None) -> None:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
+        for future in concurrent.futures.as_completed([pool.submit(probe_one, n, u) for n, u in targets.items()]):
+            report(future.result())
+
+
+def _live_text(state: dict, target: str | None, tracks: dict):
+    from rich.text import Text
+
+    if state["live_version"]:
+        text = _version_text(state["live_version"], target, tracks)
+    elif state["probe_error"]:
+        text = Text("unreachable", style="dim")
+    elif not state["api_url"]:
+        return Text("no URL", style="dim")
+    else:
+        text = Text("not probed", style="dim")
+    return text
+
+
+def cmd_probe(_args) -> None:
+    runs = load_runs()
+    targets = {r.name: api_url_for(r.name, ledger_summary(runs.get(r.name, []))) for r in deployment_repos()}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
+        futures = {pool.submit(probe_one, n, u): n for n, u in targets.items() if u}
+        for future in concurrent.futures.as_completed(futures):
+            r = future.result()
+            print(f"{r['deployment']}: {r.get('server_version') or 'unreachable (' + r['error'] + ')'}")
+    for name, url in targets.items():
+        if not url:
+            print(f"{name}: no api_url known (run `dlmeta discover`)")
+
+
+def _short(version: str) -> str:
+    """v0.8.0-alpha.1-6-gae3c005a -> 0.8.0-alpha.1 +6"""
+    version = _canonical(version)
+    dirty = version.endswith("-dirty")
+    m = re.fullmatch(r"v?(.*?)(?:-(\d+)-g[0-9a-f]+)?", version.removesuffix("-dirty"))
+    short = f"{m[1]} +{m[2]}" if m and m[2] else (m[1] if m else version)
+    return short + (" (uncommitted)" if dirty else "")
+
+
+def _version_text(version: str | None, target: str | None, tracks: dict | None = None,
+                  kind: str = "datalab"):
+    from rich.text import Text
+
+    if not version:
+        return Text("–", style="dim")
+    style, reason = version_verdict(version, target, tracks or {}, kind)
+    text = Text(_short(version), style=style)
+    if style == "bold red":
+        text = Text("⚠ ", style=style) + text
+    return text
+
+
+def _age_text(ts: str | None, suffix: str = ""):
+    from rich.text import Text
+
+    if not ts:
+        return Text("no record", style="red")
+    days = (datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(ts)).days
+    style = "green" if days <= AGE_OK_DAYS else "yellow" if days <= AGE_WARN_DAYS else "red"
+    return Text(_ago(ts) + suffix, style=style)
+
+
+def _last_run_text(state: dict):
+    from rich.text import Text
+
+    if not state["last_run_status"]:
+        return Text("no record", style="red")
+    dot = {"success": "green", "failed": "bold red", "incomplete": "yellow"}.get(state["last_run_status"], "")
+    text = Text("● ", style=dot) + _age_text(state["last_run"])
+    if state["last_run_tags"]:
+        text.append(f" {state['last_run_tags']}", style="dim")
+    return text
+
+
+def _rules_text(state: dict, tracks: dict | None = None):
+    text = _version_text(state.get("ansible_version"), None, tracks, kind="rules")
+    if state.get("ansible_local_changes"):
+        text.append(" +local", style="yellow")
+    return text
+
+
+def cmd_status(args) -> None:
+    from rich import box
+    from rich.console import Console
+    from rich.table import Table
+    from rich.text import Text
+
+    runs, probes = load_runs(), latest_probes()
+    repos = deployment_repos(include_inactive=args.all)
+    rows = [full_state(r, runs, probes) for r in repos]
+    stale = {} if args.no_probe else stale_probe_targets(rows)
+    if stale:
+        with Console(stderr=True).status(f"probing {len(stale)} deployments…"):
+            probe_many(stale)
+        probes = latest_probes()
+        rows = [full_state(r, runs, probes) for r in repos]
+    rows.sort(key=SORT_KEYS[args.sort])
+    tracks = latest_in_tracks(release_tags())
+    rules_tracks = latest_in_tracks(release_tags("rules"), by_track=False)
+    title = "datalab deployments" + (f" · target [bold]{args.to}[/]" if args.to else "")
+    table = Table(title=title, title_justify="left", box=box.SIMPLE_HEAD, header_style="bold dim",
+                  pad_edge=False, expand=False)
+    table.add_column("Deployment", style="bold", no_wrap=True)
+    table.add_column("Local datalab", no_wrap=True)
+    table.add_column("Ansible rules", no_wrap=True)
+    table.add_column("Last run", no_wrap=True)
+    table.add_column("Deployed", no_wrap=True)
+    table.add_column("Live", no_wrap=True)
+    table.add_column("Maintenance", justify="right", no_wrap=True)
+    table.add_column("Dirty", justify="right", no_wrap=True)
+
+    for r in rows:
+        note = r["inactive"] or ("no vault-pass" if not r["vault_pass"] else None)
+        name = Text(r["deployment"].removesuffix("-deployment"), style="dim" if r["inactive"] else "")
+        if note:
+            name.append(f"\n{note}", style="dim italic not bold")
+
+        last_run = _last_run_text(r)
+
+        live = _live_text(r, args.to, tracks)
+
+        maintenance = _age_text(r["last_maintenance"])
+        uncommitted = Text(str(len(r["uncommitted"])), style="yellow" if r["uncommitted"] else "green")
+        table.add_row(name, _version_text(r["local_version"], args.to, tracks), _rules_text(r, rules_tracks), last_run,
+                      _version_text(r["deployed_version"], args.to, tracks), live, maintenance, uncommitted,
+                      style="dim" if r["inactive"] else None)
+
+    console = Console()
+    console.print(table)
+    notes = {}
+    for r in rows:
+        for key in ("local_version", "deployed_version", "live_version"):
+            reason = r[key] and flagged_reason(r[key])
+            if reason:
+                notes.setdefault(r["deployment"], set()).add(f"{_short(r[key])}: {reason}")
+        reason = r["ansible_version"] and flagged_reason(r["ansible_version"], "rules")
+        if reason:
+            notes.setdefault(r["deployment"], set()).add(f"rules {_short(r['ansible_version'])}: {reason}")
+    for name, reasons in notes.items():
+        console.print(f"[bold red]⚠[/] {name}: " + "; ".join(sorted(reasons)))
+    console.print("[dim]latest datalab per track: " + ", ".join(
+        f"{a}.{b}.x → {v}" for (a, b), v in sorted(tracks.items(), reverse=True)[:3])
+        + f" · latest ansible rules: {rules_tracks.get(()) or '?'}[/]")
+
+
+def _ago(ts: str | None) -> str:
+    if not ts:
+        return "never"
+    delta = datetime.datetime.now(datetime.timezone.utc) - datetime.datetime.fromisoformat(ts)
+    if delta.days >= 1:
+        return f"{delta.days}d ago"
+    hours = delta.seconds // 3600
+    return f"{hours}h ago" if hours else f"{delta.seconds // 60}m ago"
+
+
+def cmd_dashboard(args) -> None:
+    if not args.no_probe:
+        cmd_probe(args)
+    e = html.escape
+    runs, probes = load_runs(), latest_probes()
+    rows = [full_state(r, runs, probes) for r in deployment_repos()]
+    body = "\n".join(
+        f"<tr><td><strong>{e(r['deployment'])}</strong></td><td><code>{e(r['local_version'] or '-')}</code></td>"
+        f"<td><code>{e(r['deployed_version'] or '-')}</code><div class=muted>{_ago(r['last_deploy'])}</div></td>"
+        f"<td>{e(r['live_version'] or ('unreachable' if r['probe_error'] else 'not probed'))}</td>"
+        f"<td>{_ago(r['last_maintenance'])}</td><td>{len(r['uncommitted']) or ''}</td></tr>"
+        for r in rows
+    )
+    out = STATE / "dashboard.html"
+    out.write_text(TEMPLATE.replace("{{rows}}", body).replace("{{generated}}", datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+    print(f"wrote {out}")
+
+
+TEMPLATE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>datalab deployments</title>
+<style>
+:root { --bg:#fbfbfa; --fg:#1d1d1b; --muted:#6b6b66; --line:#e4e3de; --code:#f1f0ec; }
+@media (prefers-color-scheme: dark) { :root { --bg:#161716; --fg:#e8e6e1; --muted:#9a9891; --line:#2c2d2b; --code:#232422; } }
+body { margin:0; padding:32px 16px; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, sans-serif; }
+main { max-width:1100px; margin:0 auto; } .wrap { overflow-x:auto; } table { width:100%; border-collapse:collapse; }
+th, td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--line); white-space:nowrap; }
+th { color:var(--muted); font-size:12px; text-transform:uppercase; } .muted { color:var(--muted); font-size:12px; }
+code { background:var(--code); padding:1px 4px; border-radius:3px; }
+</style></head><body><main><h1>datalab deployments</h1><p class="muted">generated {{generated}}</p>
+<div class="wrap"><table><thead><tr><th>Deployment</th><th>Local</th><th>Deployed</th><th>Live</th><th>Maintenance</th><th>Uncommitted</th></tr></thead>
+<tbody>{{rows}}</tbody></table></div></main></body></html>
+"""
+
+
+# --- Batch commands ----------------------------------------------------------------------
+
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+_ANSIBLE_TASK = re.compile(r"(?:TASK|RUNNING HANDLER) \[(.*)\] \*")
+_ANSIBLE_RECAP = re.compile(r"ok=(\d+)\s+changed=(\d+)\s+unreachable=(\d+)\s+failed=(\d+)")
+
+
+class BatchRun:
+    """One deployment's part of a `dlmeta run`: its process, its log and what its output says so far."""
+
+    def __init__(self, repo: Path, command: list[str], log: Path, skip_reason: str | None = None) -> None:
+        self.repo, self.command, self.log, self.skip_reason = repo, command, log, skip_reason
+        self.name = repo.name
+        self.status = "skipped" if skip_reason else "queued"
+        self.code: int | None = None
+        self.started: float | None = None
+        self.finished: float | None = None
+        self.task: str | None = None
+        self.failed_task: str | None = None
+        self.recap: list[int] | None = None
+        self.proc: subprocess.Popen | None = None
+
+    @property
+    def settled(self) -> bool:
+        return self.status not in ("queued", "running")
+
+    @property
+    def elapsed(self) -> float:
+        return ((self.finished or time.monotonic()) - self.started) if self.started else 0.0
+
+    @property
+    def recap_text(self) -> str:
+        if not self.recap:
+            return ""
+        ok, changed, unreachable, failed = self.recap
+        return f"ok={ok} changed={changed} failed={failed + unreachable}"
+
+    def outcome(self) -> str:
+        if self.status == "skipped":
+            return f"skipped: {self.skip_reason}"
+        if self.status in ("queued", "not run"):
+            return "not run"
+        details = ", ".join(filter(None, (f"{self.elapsed:.0f}s", self.recap_text)))
+        if self.status == "ok":
+            return f"ok ({details})"
+        at = f", at task: {self.failed_task}" if self.failed_task else ""
+        return f"FAILED with exit code {self.code} ({details}){at}"
+
+    def _parse(self, line: str) -> None:
+        line = _ANSI.sub("", line)
+        if m := _ANSIBLE_TASK.match(line):
+            self.task = m[1]
+        elif line.startswith(("fatal: [", "failed: [")):
+            # May yet be ignored or rescued, so only reported if the run goes on to fail
+            self.failed_task = self.task
+        elif m := _ANSIBLE_RECAP.search(line):
+            counts = [int(n) for n in m.groups()]
+            self.recap = [a + b for a, b in zip(self.recap, counts)] if self.recap else counts
+
+    def execute(self, on_line=None) -> None:
+        """Run the command in its own session, writing its output to the log and passing each line
+        to on_line(run, str). Having no terminal, it can't draw over the TUI or wait on a prompt.
+        """
+        env = _repo_env()
+        env["ANSIBLE_FORCE_COLOR"] = "1"
+        self.status, self.started = "running", time.monotonic()
+        partial = b""
+
+        def line_out(raw: bytes) -> None:
+            line = raw.decode(errors="replace").rstrip("\r")
+            self._parse(line)
+            if on_line:
+                on_line(self, line)
+
+        with self.log.open("wb", buffering=0) as out:
+            def output(chunk: bytes) -> None:
+                nonlocal partial
+                out.write(chunk)
+                *lines, partial = (partial + chunk).split(b"\n")
+                for raw in lines:
+                    line_out(raw)
+
+            try:
+                self.proc = subprocess.Popen(self.command, cwd=self.repo, env=env, stdin=subprocess.DEVNULL,
+                                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                             start_new_session=True)
+            except OSError as exc:
+                output(f"{exc}\n".encode())
+                self.code = 127
+            else:
+                fd = self.proc.stdout.fileno()
+                while True:
+                    if select.select([fd], [], [], 0.5)[0]:
+                        chunk = os.read(fd, 4096)
+                        if not chunk:
+                            break
+                        output(chunk)
+                    # A background process left behind can hold the pipe open long after the command ended
+                    elif self.proc.poll() is not None:
+                        break
+                self.code = self.proc.wait()
+            if partial:
+                line_out(partial)
+        self.finished = time.monotonic()
+        self.status = "ok" if self.code == 0 else "failed"
+
+    def interrupt(self, sig: int = signal.SIGINT) -> None:
+        """Signal the run's whole process group (make, uv, ansible and its ssh sessions)."""
+        if self.proc and self.proc.poll() is None:
+            try:
+                os.killpg(self.proc.pid, sig)
+            except ProcessLookupError:
+                pass
+
+
+def _execute_batch(runs: list[BatchRun], stop: threading.Event, on_line=None, on_finish=None) -> bool:
+    """Run everything not skipped, RUN_JOBS at a time, until `stop` is set. A failure doesn't stop
+    the others, as deployments are independent. Returns whether it was interrupted."""
+
+    def run_one(run: BatchRun) -> None:
+        if stop.is_set():
+            run.status = "not run"
+            return
+        run.execute(on_line)
+        if on_finish:
+            on_finish(run)
+
+    interrupted = False
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=RUN_JOBS)
+    try:
+        for future in concurrent.futures.as_completed([pool.submit(run_one, r) for r in runs if not r.settled]):
+            future.result()
+    except KeyboardInterrupt:
+        interrupted = True
+        stop.set()
+        for run in runs:
+            run.interrupt()
+    pool.shutdown(wait=True, cancel_futures=True)
+    return interrupted
+
+
+def _duration(text: str) -> int:
+    """Seconds in a duration such as 30m, 12h, 1d or 1w, or 0."""
+    if text == "0":
+        return 0
+    m = re.fullmatch(r"(\d+)([mhdw])", text)
+    if not m:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a duration, e.g. 30m, 12h, 1d, 1w or 0")
+    return int(m[1]) * {"m": 60, "h": 3600, "d": 86400, "w": 604800}[m[2]]
+
+
+def _last_success(runs: list[dict], target: str) -> str | None:
+    """When a make target last succeeded, which a whole-playbook run also counts as (runs are oldest first)."""
+    matching = [r["started"] for r in runs if r["status"] == "success" and r.get("started")
+                and {target, "all"} & set(r.get("tags") or ["all"])]
+    return matching[-1] if matching else None
+
+
+def _skip_reason(repo: Path, command: list[str], ledger: dict[str, list[dict]], rerun_after: int | None) -> str | None:
+    if command[0] != "make":
+        return None
+    if not (repo / "Makefile").is_file():
+        return "no Makefile"
+    targets = [arg for arg in command[1:] if not arg.startswith("-")] or ["all"]
+    # Maintenance upgrades packages and can restart Docker, so is not worth repeating. Anything else
+    # may well be run again on purpose, e.g., a deploy after bumping the version or changing config.
+    if rerun_after is None:
+        rerun_after = MAINTENANCE_RERUN_AFTER if targets == ["maintenance"] else 0
+    if not rerun_after:
+        return None
+    last = [_last_success(ledger.get(repo.name, []), target) for target in targets]
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if all(last) and all((now - datetime.datetime.fromisoformat(ts)).total_seconds() < rerun_after for ts in last):
+        return f"{' '.join(targets)} succeeded {_ago(min(last))}"
+    return None
+
+
+def cmd_run(args) -> None:
+    command = args.command[1:] if args.command[:1] == ["--"] else args.command
+    if not command:
+        sys.exit("dlmeta: no command given, e.g. `dlmeta run -- make maintenance`")
+    if args.rerun_after and command[0] != "make":
+        sys.exit("dlmeta: --rerun-after only works with make targets, which is how runs are matched to the ledger")
+    repos = select_repos(args.only, args.exclude, args.all)
+    if not repos:
+        sys.exit("dlmeta: no deployments selected")
+
+    uses_ansible = command[0] == "make" or "ansible" in " ".join(command)
+    ledger = load_runs()
+    targets, skipped = [], {}
+    print(f"Command: {' '.join(command)}")
+    for repo in repos:
+        dirty = len((_git(repo, "status", "--porcelain") or "").splitlines())
+        reason = _skip_reason(repo, command, ledger, args.rerun_after)
+        if reason:
+            skipped[repo.name] = reason
+        else:
+            targets.append(repo)
+        note = f"skip: {reason}" if reason else f"{dirty} uncommitted" if dirty else ""
+        print(f"  {repo.name:<40} {note}")
+    if uses_ansible and not LEDGER_PLUGIN.is_file() and LEDGER_PLUGIN.stem not in os.environ.get("ANSIBLE_CALLBACKS_ENABLED", ""):
+        print(f"Warning: {LEDGER_PLUGIN} not found, so these runs may not be recorded in the ledger")
+    if args.dry_run or not targets:
+        return
+    if not args.yes:
+        if not sys.stdin.isatty():
+            sys.exit("dlmeta: refusing to run without confirmation, pass --yes")
+        if input(f"Run in {len(targets)} deployment(s), up to {RUN_JOBS} at a time? [y/N] ").strip().lower() != "y":
+            return
+
+    sys.stdout.flush()
+    if uses_ansible:
+        ensure_rbw()
+    # Output of ansible can include secrets
+    LOGS.mkdir(parents=True, mode=0o700, exist_ok=True)
+    log_dir = LOGS / f"{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%SZ}-{os.getpid()}"
+    log_dir.mkdir(mode=0o700)
+    runs = [BatchRun(repo, command, log_dir / f"{repo.name}.log", skipped.get(repo.name)) for repo in repos]
+    stop = threading.Event()
+    if sys.stdout.isatty():
+        try:
+            interrupted = _batch_app(runs, stop).run()
+        finally:
+            # Only anything left if the TUI itself failed
+            for run in runs:
+                run.interrupt(signal.SIGTERM)
+    else:
+        interrupted = _execute_batch(runs, stop, on_finish=lambda run: print(f"{run.name}: {run.outcome()}", flush=True))
+
+    print(f"\nSummary (logs in {log_dir}):")
+    for run in runs:
+        print(f"  {run.name:<40} {run.outcome()}")
+    if interrupted:
+        sys.exit(130)
+    if any(run.status == "failed" for run in runs):
+        sys.exit(1)
+
+
+def _batch_app(runs: list[BatchRun], stop: threading.Event):
+    """A summary tab plus a tab streaming each deployment's output. Returns whether it was interrupted."""
+    from rich.text import Text
+    from textual.app import App, ComposeResult
+    from textual.binding import Binding
+    from textual.widgets import DataTable, Footer, Header, RichLog, TabbedContent, TabPane, Tabs
+
+    ICONS = {"queued": "…", "running": "▶", "ok": "✓", "failed": "✗", "not run": "–", "skipped": "–"}
+    STYLES = {"queued": "dim", "running": "bold cyan", "ok": "green", "failed": "bold red", "not run": "dim", "skipped": "dim"}
+    COLUMNS = ["Deployment", "Status", "Time", "Task", "Recap"]
+    QUIT_CONFIRM_SECONDS = 5
+    tabs = {f"run-{i}": run for i, run in enumerate(runs) if run.status != "skipped"}
+
+    class BatchApp(App[bool]):
+        TITLE = "dlmeta run"
+        ENABLE_COMMAND_PALETTE = False
+        CSS = TABLE_CSS + "DataTable, RichLog { height: 1fr; } TabPane { padding: 0; }"
+        BINDINGS = [
+            Binding("n", "next_tab", "Next tab"),
+            Binding("p", "previous_tab", "Previous tab"),
+            Binding("s", "summary", "Summary"),
+            Binding("x", "drain", "Start no more"),
+            Binding("q", "quit", "Quit"),
+        ]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.lines: collections.deque[tuple[BatchRun, str]] = collections.deque()
+            self.shown: dict[tuple[int, str], str] = {}
+            self.quit_armed_until = 0.0
+            self.interrupted = False
+
+        def compose(self) -> ComposeResult:
+            yield Header()
+            with TabbedContent(id="tabs"):
+                with TabPane("Summary", id="summary"):
+                    yield DataTable(cursor_type="row", zebra_stripes=True)
+                for pane_id, run in tabs.items():
+                    with TabPane(self._label(run), id=pane_id):
+                        yield RichLog(wrap=True, id=f"log-{pane_id}")
+            yield Footer()
+
+        def on_mount(self) -> None:
+            table = self.query_one(DataTable)
+            for column in COLUMNS:
+                table.add_column(column, key=column)
+            for i, _run in enumerate(runs):
+                table.add_row(*[""] * len(COLUMNS), key=str(i))
+            self._tick()
+            self.set_interval(0.2, self._tick)
+            threading.Thread(target=_execute_batch, daemon=True, args=(runs, stop),
+                             kwargs={"on_line": lambda run, line: self.lines.append((run, line))}).start()
+
+        @staticmethod
+        def _label(run: BatchRun) -> str:
+            return f"{ICONS[run.status]} {run.name.removesuffix('-deployment')}"
+
+        def _task_text(self, run: BatchRun) -> str:
+            if run.status == "skipped":
+                return run.skip_reason or ""
+            if run.status == "failed":
+                return f"failed at: {run.failed_task}" if run.failed_task else f"exit code {run.code}"
+            return run.task or "" if run.status == "running" else ""
+
+        def _tick(self) -> None:
+            """Show what the workers have produced, which they only ever add to a queue,
+            so that a slow or closing UI can't hold up a run."""
+            while self.lines:
+                run, line = self.lines.popleft()
+                pane_id = next(p for p, r in tabs.items() if r is run)
+                log = self.query_one(f"#log-{pane_id}", RichLog)
+                # Stay put if scrolled up to read something
+                log.write(Text.from_ansi(line), scroll_end=log.is_vertical_scroll_end)
+            table = self.query_one(DataTable)
+            for i, run in enumerate(runs):
+                values = {
+                    "Deployment": Text(run.name.removesuffix("-deployment"), style="bold"),
+                    "Status": Text(f"{ICONS[run.status]} {run.status}", style=STYLES[run.status]),
+                    "Time": f"{run.elapsed:.0f}s" if run.started else "",
+                    "Task": self._task_text(run),
+                    "Recap": run.recap_text,
+                }
+                for column, value in values.items():
+                    if self.shown.get((i, column)) != str(value):
+                        self.shown[(i, column)] = str(value)
+                        table.update_cell(str(i), column, value, update_width=True)
+            for pane_id, run in tabs.items():
+                if self.shown.get((-1, pane_id)) != run.status:
+                    self.shown[(-1, pane_id)] = run.status
+                    self.query_one(TabbedContent).get_tab(pane_id).label = self._label(run)
+            counts = collections.Counter(run.status for run in runs)
+            self.sub_title = " · ".join(f"{counts[s]} {s}" for s in ICONS if counts[s])
+            if self.interrupted and all(run.settled for run in runs):
+                self.exit(True)
+
+        def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+            widget = DataTable if event.pane.id == "summary" else RichLog
+            event.pane.query_one(widget).focus()
+
+        def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+            pane_id = f"run-{event.row_key.value}"
+            if pane_id in tabs:
+                self.query_one(TabbedContent).active = pane_id
+
+        def action_next_tab(self) -> None:
+            self.query_one("#tabs Tabs", Tabs).action_next_tab()
+
+        def action_previous_tab(self) -> None:
+            self.query_one("#tabs Tabs", Tabs).action_previous_tab()
+
+        def action_summary(self) -> None:
+            self.query_one(TabbedContent).active = "summary"
+
+        def action_drain(self) -> None:
+            stop.set()
+            self.notify("No more deployments will be started; those running will finish")
+
+        async def action_quit(self) -> None:
+            running = [run for run in runs if run.status == "running"]
+            if all(run.settled for run in runs):
+                self.exit(self.interrupted)
+            elif self.interrupted:
+                for run in running:
+                    run.interrupt(signal.SIGTERM)
+                self.notify(f"Sent SIGTERM to {len(running)} still running")
+            elif time.monotonic() < self.quit_armed_until:
+                self.interrupted = True
+                stop.set()
+                for run in running:
+                    run.interrupt()
+                self.notify(f"Interrupting {len(running)} deployment(s); will quit once they stop. Press q to force")
+            else:
+                self.quit_armed_until = time.monotonic() + QUIT_CONFIRM_SECONDS
+                self.notify(f"{len(running)} still running: press q again to interrupt them", severity="warning")
+
+    return BatchApp()
+
+
+# --- TUI ---------------------------------------------------------------------------------
+
+
+def run_tui(target: str | None) -> None:
+    from rich.text import Text
+    from textual import work
+    from textual.app import App, ComposeResult
+    from textual.binding import Binding
+    from textual.containers import Vertical
+    from textual.screen import ModalScreen
+    from textual.widgets import DataTable, Footer, Header, Input, Label, RichLog
+
+    class Prompt(ModalScreen[str | None]):
+        DEFAULT_CSS = "Prompt { align: center middle; } Prompt > Vertical { width: 70; height: auto; border: round $accent; padding: 1 2; background: $surface; }"
+        BINDINGS = [Binding("escape", "cancel", "Cancel")]
+
+        def __init__(self, question: str, value: str = "") -> None:
+            super().__init__()
+            self.question, self.value = question, value
+
+        def compose(self) -> ComposeResult:
+            with Vertical():
+                yield Label(self.question)
+                yield Input(value=self.value)
+
+        def on_input_submitted(self, event: Input.Submitted) -> None:
+            self.dismiss(event.value.strip() or None)
+
+        def action_cancel(self) -> None:
+            self.dismiss(None)
+
+    COLUMNS = ["Deployment", "Local datalab", "Ansible rules", "Dirty", "Last run", "Deployed", "Live", "Maintenance"]
+
+    class Dlmeta(App):
+        TITLE = "datalab deployments"
+        CSS = TABLE_CSS + "DataTable { height: 1fr; } RichLog { height: 9; border-top: solid $accent; }"
+        BINDINGS = [
+            Binding("j", "cursor_down", "Down", show=False),
+            Binding("k", "cursor_up", "Up", show=False),
+            Binding("t", "set_target", "Target"),
+            Binding("b", "bump", "Bump"),
+            Binding("d", "deploy", "Deploy"),
+            Binding("D", "deploy_tags", "Run tags"),
+            Binding("s", "shell", "Shell"),
+            Binding("p", "probe", "Probe all"),
+            Binding("i", "discover", "Discover URLs"),
+            Binding("a", "toggle_inactive", "Show inactive"),
+            Binding("o", "cycle_sort", "Sort"),
+            Binding("r", "refresh", "Refresh"),
+            Binding("q", "quit", "Quit"),
+        ]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.target = target
+            self.show_inactive = False
+            self.sort = "name"
+            self.repos = {r.name: r for r in deployment_repos()}
+            self.states: dict[str, dict] = {}
+            self.tracks: dict = {}
+            self.rules_tracks: dict = {}
+
+        def compose(self) -> ComposeResult:
+            yield Header()
+            yield DataTable(cursor_type="row", zebra_stripes=True)
+            yield RichLog(markup=True, wrap=True)
+            yield Footer()
+
+        def on_mount(self) -> None:
+            table = self.query_one(DataTable)
+            for col in COLUMNS:
+                table.add_column(col, key=col)
+            self._add_rows()
+            self._update_subtitle()
+            self.refresh_all()
+            self.log_msg("[dim]t: set target version · b: bump submodule · d: deploy · D: run other tags · "
+                         "s: shell in repo · p: probe live versions · i: discover API URLs (needs rbw)[/]")
+
+        # helpers
+        def _add_rows(self) -> None:
+            table = self.query_one(DataTable)
+            table.clear()
+            for name in self.repos:
+                table.add_row(*[""] * len(COLUMNS), key=name)
+            for name in self.repos:
+                if name in self.states:
+                    self.render_row(name)
+
+        def log_msg(self, msg: str) -> None:
+            self.query_one(RichLog).write(msg)
+
+        def _update_subtitle(self) -> None:
+            target = f"target: {self.target}" if self.target else "no target set (press t)"
+            self.sub_title = f"{target} · sorted by {self.sort}"
+
+        def selected(self) -> str | None:
+            table = self.query_one(DataTable)
+            if table.row_count == 0:
+                return None
+            return table.coordinate_to_cell_key(table.cursor_coordinate).row_key.value
+
+        def render_row(self, name: str) -> None:
+            s = self.states[name]
+            local = _version_text(s["local_version"], self.target, self.tracks)
+            last_run = _last_run_text(s)
+            live = _live_text(s, self.target, self.tracks)
+            uncommitted = Text(str(len(s["uncommitted"])), style="yellow" if s["uncommitted"] else "green")
+            note = f" ({s['inactive']})" if s["inactive"] else "" if s["vault_pass"] else " (no vault-pass)"
+            name_text = Text(name.removesuffix("-deployment") + note, style="dim" if s["inactive"] or not s["vault_pass"] else "")
+            values = [name_text, local, _rules_text(s, self.rules_tracks), uncommitted, last_run,
+                      _version_text(s["deployed_version"], self.target, self.tracks), live, _age_text(s["last_maintenance"])]
+            table = self.query_one(DataTable)
+            for col, value in zip(COLUMNS, values):
+                table.update_cell(name, col, value, update_width=True)
+
+        @work(thread=True, exclusive=True, group="refresh")
+        def refresh_all(self) -> None:
+            self.tracks = latest_in_tracks(release_tags())
+            self.rules_tracks = latest_in_tracks(release_tags("rules"), by_track=False)
+            runs, probes = load_runs(), latest_probes()
+            states = []
+            for name, repo in self.repos.items():
+                state = full_state(repo, runs, probes)
+                states.append(state)
+                self.call_from_thread(self._set_state, name, state)
+            stale = stale_probe_targets(states)
+            if stale:
+                self.call_from_thread(self._probe, list(stale))
+
+        def _set_state(self, name: str, state: dict) -> None:
+            self.states[name] = state
+            self.render_row(name)
+
+        def refresh_one(self, name: str) -> None:
+            self._set_state(name, full_state(self.repos[name]))
+
+        def ensure_rbw(self) -> bool:
+            if subprocess.run(["rbw", "unlocked"], capture_output=True).returncode == 0:
+                return True
+            with self.suspend():
+                ok = subprocess.run(["rbw", "unlock"]).returncode == 0
+            return ok
+
+        # actions
+        def action_cursor_down(self) -> None:
+            self.query_one(DataTable).action_cursor_down()
+
+        def action_cursor_up(self) -> None:
+            self.query_one(DataTable).action_cursor_up()
+
+        def action_refresh(self) -> None:
+            self.refresh_all()
+
+        def action_cycle_sort(self) -> None:
+            keys = list(SORT_KEYS)
+            self.sort = keys[(keys.index(self.sort) + 1) % len(keys)]
+            if all(n in self.states for n in self.repos):
+                ordered = sorted(self.repos, key=lambda n: SORT_KEYS[self.sort](self.states[n]))
+                self.repos = {n: self.repos[n] for n in ordered}
+                self._add_rows()
+            self._update_subtitle()
+
+        def action_toggle_inactive(self) -> None:
+            self.show_inactive = not self.show_inactive
+            self.repos = {r.name: r for r in deployment_repos(include_inactive=self.show_inactive)}
+            self._add_rows()
+            self.refresh_all()
+
+        def action_set_target(self) -> None:
+            def done(value: str | None) -> None:
+                if value:
+                    self.target = value
+                    self._update_subtitle()
+                    for name in self.states:
+                        self.render_row(name)
+            self.push_screen(Prompt("Target datalab version (git ref, e.g. v0.7.11):", self.target or ""), done)
+
+        def action_bump(self) -> None:
+            name = self.selected()
+            if not name:
+                return
+
+            def done(ref: str | None) -> None:
+                if ref:
+                    self.target = self.target or ref
+                    self._update_subtitle()
+                    self.log_msg(f"{name}: checking out {ref} in src/datalab…")
+                    self._bump(name, ref)
+            self.push_screen(Prompt(f"Bump {name}'s datalab submodule to:", self.target or ""), done)
+
+        @work(thread=True)
+        def _bump(self, name: str, ref: str) -> None:
+            result = bump(self.repos[name], ref)
+            self.call_from_thread(self.log_msg, f"{name}: {result}")
+            self.call_from_thread(self.refresh_one, name)
+
+        def _run_in_repo(self, name: str, command: list[str]) -> None:
+            with self.suspend():
+                print(f"\n=== {name}: {' '.join(command)}\n", flush=True)
+                code = subprocess.run(command, cwd=self.repos[name], env=_repo_env()).returncode
+                if code != 0:
+                    input(f"\n=== exited with {code}; press Enter to return to dlmeta ")
+            self.refresh_one(name)
+            self.log_msg(f"{name}: `{' '.join(command)}` exited with {code}")
+
+        def action_deploy(self) -> None:
+            name = self.selected()
+            if name and self.ensure_rbw():
+                self._run_in_repo(name, ["make", "deploy"])
+                self._probe([name])
+
+        def action_deploy_tags(self) -> None:
+            name = self.selected()
+            if not name:
+                return
+
+            def done(tags: str | None) -> None:
+                if tags and self.ensure_rbw():
+                    self._run_in_repo(name, ["make", *re.split(r"[\s,]+", tags)])
+                    self._probe([name])
+            self.push_screen(Prompt(f"Tags to run on {name} (space/comma separated, empty = cancel):", "maintenance deploy"), done)
+
+        def action_shell(self) -> None:
+            name = self.selected()
+            if name:
+                self._run_in_repo(name, [os.environ.get("SHELL", "zsh")])
+
+        def action_probe(self) -> None:
+            self._probe(list(self.repos))
+
+        @work(thread=True, group="probe")
+        def _probe(self, names: list[str]) -> None:
+            targets = {n: self.states.get(n, {}).get("api_url") for n in names}
+            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
+                futures = {pool.submit(probe_one, n, u): n for n, u in targets.items() if u}
+                for future in concurrent.futures.as_completed(futures):
+                    r = future.result()
+                    self.call_from_thread(self.log_msg, f"{r['deployment']}: " + (
+                        f"live {r['server_version']}" if r["ok"] else f"[dim]unreachable ({r['error']})[/]"))
+                    self.call_from_thread(self.refresh_one, r["deployment"])
+
+        def action_discover(self) -> None:
+            if self.ensure_rbw():
+                self.log_msg("discovering API URLs from inventories…")
+                self._discover()
+
+        @work(thread=True, exclusive=True, group="discover")
+        def _discover(self) -> None:
+            discover_all(list(self.repos.values()), lambda name, r: self.call_from_thread(
+                self.log_msg, f"{name}: " + (f"[dim]{_discover_summary(r)}[/]" if "error" in r else _discover_summary(r))))
+            self.call_from_thread(self.refresh_all)
+
+    Dlmeta().run()
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = parser.add_subparsers(dest="cmd")
+    tui = sub.add_parser("tui")
+    tui.add_argument("--to", help="target datalab version (git ref) to highlight and bump to")
+    status = sub.add_parser("status")
+    status.add_argument("--all", action="store_true", help="include inactive deployments")
+    status.add_argument("--to", help="target datalab version (git ref) to highlight")
+    status.add_argument("--no-probe", action="store_true",
+                        help=f"don't re-probe deployments whose last probe is over {PROBE_MAX_AGE // 60} min old")
+    status.add_argument("--sort", choices=list(SORT_KEYS), default="name",
+                        help="row order; `maintenance` and `run` put the stalest first")
+    status.set_defaults(func=cmd_status)
+    run = sub.add_parser("run", help="run a command in several deployments, e.g. `dlmeta run -- make maintenance`")
+    run.add_argument("--only", action="append", default=[], metavar="GLOB",
+                     help="only these deployments (name or glob, without the -deployment suffix if you like; repeatable)")
+    run.add_argument("--exclude", action="append", default=[], metavar="GLOB", help="leave out these deployments (repeatable)")
+    run.add_argument("--all", action="store_true", help="include inactive deployments")
+    run.add_argument("--rerun-after", type=_duration, metavar="DURATION",
+                     help="skip deployments where these make targets succeeded more recently than this, e.g. 12h, 1d, 1w, "
+                          "or 0 to always run (default: 1d for `make maintenance`, otherwise 0)")
+    run.add_argument("--dry-run", "-n", action="store_true", help="show what would run")
+    run.add_argument("--yes", "-y", action="store_true", help="don't ask for confirmation")
+    run.add_argument("command", nargs=argparse.REMAINDER, help="the command, after `--`")
+    run.set_defaults(func=cmd_run)
+    sub.add_parser("discover").set_defaults(func=cmd_discover)
+    sub.add_parser("probe").set_defaults(func=cmd_probe)
+    dash = sub.add_parser("dashboard")
+    dash.add_argument("--no-probe", action="store_true", help="use the last recorded probe results")
+    dash.set_defaults(func=cmd_dashboard)
+    args = parser.parse_args()
+    RUNS.mkdir(parents=True, exist_ok=True)
+    if args.cmd in (None, "tui"):
+        run_tui(getattr(args, "to", None))
+    else:
+        args.func(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

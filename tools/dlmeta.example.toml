@@ -1,0 +1,24 @@
+# This file was edited with the assistance of an AI model and requires human review from the contributor.
+# Example dlmeta config: copy to ~/.config/dlmeta/config.toml (or point $DLMETA_CONFIG at it).
+
+# Where to find deployments: each entry is either a deployment repo, or a folder of them.
+# Repos are identified by their folder name, so names must be unique across these locations.
+deployments = [
+    "~/repos/datalab/deployments",
+    # "~/work/some-other-deployment",
+]
+
+# Where to keep the ledger, probe results, URL cache and logs (default: ~/.local/state/dlmeta)
+# state_dir = "~/.local/state/dlmeta"
+
+# Deployments to hide unless asked for: name = reason
+[inactive]
+# old-deployment = "decommissioned"
+
+# datalab versions to warn about: version specifier = reason
+[flagged]
+# "<0.7.0" = "example: no longer supported"
+
+# As above, for the ansible-terraform rules
+[flagged_rules]
+# "<0.8.0" = "example: pinned to an old Docker repository"

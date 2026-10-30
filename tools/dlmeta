@@ -10,6 +10,7 @@
   dlmeta tui [--to REF]
   dlmeta status       table of every deployment (local state + ledger + last probe)
   dlmeta run          run a command in several deployments, e.g. `dlmeta run -- make maintenance`
+  dlmeta deploy       update their datalab submodules (without committing) and run `make deploy`
   dlmeta discover     read each repo's api_url from its encrypted inventory (needs rbw)
   dlmeta probe        query each deployment's public /info endpoint for its live version
   dlmeta dashboard    write dashboard.html (runs `probe` first unless --no-probe)
@@ -74,6 +75,8 @@ LEDGER_PLUGIN = ROOT / "callback_plugins" / "deployment_ledger.py"
 PROBE_TIMEOUT = 5
 # Deployments that `dlmeta run` works on at a time
 RUN_JOBS = 8
+# What `dlmeta deploy --nightly` deploys: the remote's branch, as a local one may be long out of date
+NIGHTLY_REF = "origin/main"
 # `dlmeta run -- make maintenance` skips deployments that succeeded more recently than this (seconds)
 MAINTENANCE_RERUN_AFTER = 24 * 3600
 # Per-repo limit for decrypting an inventory during `discover`
@@ -697,10 +700,12 @@ _ANSIBLE_RECAP = re.compile(r"ok=(\d+)\s+changed=(\d+)\s+unreachable=(\d+)\s+fai
 class BatchRun:
     """One deployment's part of a `dlmeta run`: its process, its log and what its output says so far."""
 
-    def __init__(self, repo: Path, command: list[str], log: Path, skip_reason: str | None = None) -> None:
+    def __init__(self, repo: Path, command: list[str], log: Path, skip_reason: str | None = None,
+                 blocked_reason: str | None = None) -> None:
         self.repo, self.command, self.log, self.skip_reason = repo, command, log, skip_reason
+        self.blocked_reason = blocked_reason
         self.name = repo.name
-        self.status = "skipped" if skip_reason else "queued"
+        self.status = "blocked" if blocked_reason else "skipped" if skip_reason else "queued"
         self.code: int | None = None
         self.started: float | None = None
         self.finished: float | None = None
@@ -727,6 +732,8 @@ class BatchRun:
     def outcome(self) -> str:
         if self.status == "skipped":
             return f"skipped: {self.skip_reason}"
+        if self.status == "blocked":
+            return f"CANNOT UPDATE: {self.blocked_reason}"
         if self.status in ("queued", "not run"):
             return "not run"
         details = ", ".join(filter(None, (f"{self.elapsed:.0f}s", self.recap_text)))
@@ -802,15 +809,17 @@ class BatchRun:
                 pass
 
 
-def _execute_batch(runs: list[BatchRun], stop: threading.Event, on_line=None, on_finish=None) -> bool:
-    """Run everything not skipped, RUN_JOBS at a time, until `stop` is set. A failure doesn't stop
-    the others, as deployments are independent. Returns whether it was interrupted."""
+def _execute_batch(runs: list[BatchRun], stop: threading.Event, stop_on_failure: bool = False,
+                   on_line=None, on_finish=None) -> bool:
+    """Run everything not skipped, RUN_JOBS at a time, until `stop` is set. Returns whether it was interrupted."""
 
     def run_one(run: BatchRun) -> None:
         if stop.is_set():
             run.status = "not run"
             return
         run.execute(on_line)
+        if stop_on_failure and run.code != 0:
+            stop.set()
         if on_finish:
             on_finish(run)
 
@@ -900,43 +909,219 @@ def cmd_run(args) -> None:
     sys.stdout.flush()
     if uses_ansible:
         ensure_rbw()
+    code = _run_batch(repos, command, skipped)
+    if code:
+        sys.exit(code)
+
+
+def _run_batch(repos: list[Path], command: list[str], skipped: dict[str, str] | None = None,
+               blocked: dict[str, str] | None = None, stop_on_failure: bool = False) -> int:
+    """Run `command` in `repos` with a TUI if on a terminal, then report. Returns the exit code."""
+    skipped, blocked = skipped or {}, blocked or {}
     # Output of ansible can include secrets
     LOGS.mkdir(parents=True, mode=0o700, exist_ok=True)
     log_dir = LOGS / f"{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%SZ}-{os.getpid()}"
     log_dir.mkdir(mode=0o700)
-    runs = [BatchRun(repo, command, log_dir / f"{repo.name}.log", skipped.get(repo.name)) for repo in repos]
+    runs = [BatchRun(repo, command, log_dir / f"{repo.name}.log", skipped.get(repo.name), blocked.get(repo.name))
+            for repo in repos]
     stop = threading.Event()
     if sys.stdout.isatty():
         try:
-            interrupted = _batch_app(runs, stop).run()
+            interrupted = _batch_app(runs, stop, stop_on_failure).run()
         finally:
             # Only anything left if the TUI itself failed
             for run in runs:
                 run.interrupt(signal.SIGTERM)
     else:
-        interrupted = _execute_batch(runs, stop, on_finish=lambda run: print(f"{run.name}: {run.outcome()}", flush=True))
+        interrupted = _execute_batch(runs, stop, stop_on_failure,
+                                     on_finish=lambda run: print(f"{run.name}: {run.outcome()}", flush=True))
 
     print(f"\nSummary (logs in {log_dir}):")
     for run in runs:
         print(f"  {run.name:<40} {run.outcome()}")
+    # Last, so that it can't be missed once the TUI has gone
+    _shout_blocked(blocked)
     if interrupted:
-        sys.exit(130)
-    if any(run.status == "failed" for run in runs):
-        sys.exit(1)
+        return 130
+    return 1 if blocked or any(run.status == "failed" for run in runs) else 0
 
 
-def _batch_app(runs: list[BatchRun], stop: threading.Event):
+def _shout_blocked(blocked: dict[str, str]) -> None:
+    from rich.console import Console
+    from rich.text import Text
+
+    if blocked:
+        console = Console(highlight=False)
+        console.print()
+        console.print(Text(f" CANNOT UPDATE {len(blocked)} DEPLOYMENT(S): THESE WERE NOT DEPLOYED ", style="bold red reverse"))
+        for name, reason in sorted(blocked.items()):
+            console.print(Text(f"  {name}: {reason}", style="bold red"))
+        console.print()
+
+
+# --- Updating and deploying --------------------------------------------------------------
+
+
+def _git_try(repo: Path, *args: str, timeout: int = 120) -> tuple[bool, str]:
+    """(True, output) or (False, why), never prompting, so that anything that needs an answer is a failure."""
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    env.setdefault("GIT_SSH_COMMAND", "ssh -o BatchMode=yes")
+    try:
+        proc = subprocess.run(["git", "-C", str(repo), *args], env=env, stdin=subprocess.DEVNULL,
+                              capture_output=True, text=True, timeout=timeout)
+    except (subprocess.SubprocessError, OSError) as exc:
+        return False, str(exc)[:200]
+    if proc.returncode != 0:
+        lines = proc.stderr.strip().splitlines() or [f"git {args[0]} failed"]
+        rejected = [line.strip() for line in lines if line.lstrip().startswith("! [")]
+        if rejected:
+            return False, f"{len(rejected)} ref(s) rejected, e.g., {re.sub(r' +', ' ', rejected[0])}"[:200]
+        # The reason, rather than advice on what might have caused it, which comes after
+        return False, next((line for line in lines if line.startswith(("fatal:", "error:"))), lines[-1])[:200]
+    return True, proc.stdout.strip()
+
+
+def _latest_on_track(tags: list[str], current: str) -> str | None:
+    """Newest tag on the release line of `current`, with pre-releases only if that is one too."""
+    version = _parse(current)
+    if version is None:
+        return None
+    candidates = [(v, tag) for tag in tags if (v := _parse(tag)) is not None and v.release[:2] == version.release[:2]
+                  and (version.is_prerelease or not v.is_prerelease)]
+    return max(candidates, key=lambda c: c[0])[1] if candidates else None
+
+
+def _plan_update(repo: Path, to: str, deployed: str | None) -> dict:
+    """Work out what updating to `to` means for this repo, changing nothing but its remote refs.
+    The result has `blocked` if it can't be done, and otherwise `commit` to check out."""
+    submodule = repo / "src" / "datalab"
+    if not (repo / "Makefile").is_file():
+        return {"blocked": "no Makefile"}
+    # Otherwise git would quietly operate on the deployment repo itself
+    if not (submodule / ".git").exists():
+        return {"blocked": "src/datalab is not checked out"}
+    ok, status = _git_try(submodule, "status", "--porcelain")
+    if not ok:
+        return {"blocked": f"could not read src/datalab: {status}"}
+    if status:
+        return {"blocked": f"src/datalab has {len(status.splitlines())} uncommitted change(s)"}
+    ok, head = _git_try(submodule, "rev-parse", "HEAD")
+    if not ok:
+        return {"blocked": f"could not read src/datalab: {head}"}
+    current = _git(submodule, "describe", "--tags", "--match", "v*") or head[:8]
+    # A failure here must not fall back on local tags: "latest" would silently be out of date.
+    # Not --quiet, which also hides why a ref was rejected, e.g., because a tag moved upstream.
+    ok, why = _git_try(submodule, "fetch", "--tags", "origin")
+    if not ok:
+        return {"blocked": f"could not fetch: {why}", "current": current}
+
+    ref = to
+    if to == "latest":
+        ok, tags = _git_try(submodule, "tag", "--list", "v*")
+        ref = _latest_on_track(tags.split(), current) if ok else None
+        if ref is None:
+            return {"blocked": f"no release found on the same line as {current}, use --to", "current": current}
+    # A branch name means upstream's, as the local one may be long out of date
+    for candidate in (f"refs/tags/{ref}", f"origin/{ref}", ref):
+        ok, commit = _git_try(submodule, "rev-parse", "--verify", "--quiet", f"{candidate}^{{commit}}")
+        if ok:
+            break
+    else:
+        return {"blocked": f"no such tag, branch or commit: {ref}", "current": current}
+    name = _git(submodule, "describe", "--tags", "--match", "v*", commit) or commit[:8]
+    plan = {"current": current, "target": name, "commit": commit}
+    warnings = []
+    reason = flagged_reason(name)
+    if reason:
+        # A commit after a flagged release may well be the fix for it, so that is for the user to judge
+        if not re.search(r"-\d+-g[0-9a-f]+$", name):
+            return {"blocked": f"{name} is flagged: {reason}", "current": current}
+        warnings.append(f"follows a flagged release: {reason}")
+    current_version, target_version = _parse(current), _parse(name)
+    if current_version and target_version and current_version.release[:2] != target_version.release[:2]:
+        warnings.append("changes release line")
+    if commit == head:
+        return {**plan, "up_to_date": deployed == current, "warning": "; ".join(warnings)}
+    if not _git_try(submodule, "merge-base", "--is-ancestor", head, commit)[0]:
+        ok, unpushed = _git_try(submodule, "rev-list", "--count", head, "--not", "--remotes", "--tags")
+        ok2, dropped = _git_try(submodule, "rev-list", "--count", f"{commit}..{head}")
+        if not (ok and ok2):
+            return {"blocked": f"could not compare {current} with {name}", "current": current}
+        # Checking out the target would leave these reachable only from the reflog, even if asked for by name
+        if unpushed != "0":
+            return {"blocked": f"{current} has {unpushed} commit(s) not pushed anywhere, which {name} would lose",
+                    "current": current}
+        if to in ("latest", NIGHTLY_REF):
+            return {"blocked": f"{current} has {dropped} commit(s) that {name} lacks", "current": current}
+        warnings.append(f"leaves behind {dropped} commit(s) that {name} lacks")
+    return {**plan, "warning": "; ".join(warnings)}
+
+
+def cmd_deploy(args) -> None:
+    repos = select_repos(args.only, args.exclude, args.all)
+    if not repos:
+        sys.exit("dlmeta: no deployments selected")
+    ledger = load_runs()
+    print(f"Fetching {len(repos)} datalab submodule(s)…", flush=True)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=RUN_JOBS) as pool:
+        plans = dict(zip((r.name for r in repos), pool.map(
+            lambda r: _plan_update(r, args.to, ledger_summary(ledger.get(r.name, []))["deployed_version"]), repos)))
+
+    targets, skipped, blocked = [], {}, {}
+    print("Command: make deploy")
+    for repo in repos:
+        plan = plans[repo.name]
+        if "blocked" in plan:
+            blocked[repo.name] = plan["blocked"]
+            note = "CANNOT UPDATE"
+        elif plan.get("up_to_date"):
+            skipped[repo.name] = f"{plan['current']} is already deployed"
+            note = f"skip: {skipped[repo.name]}"
+        else:
+            targets.append(repo)
+            note = f"{plan['current']} → {plan['target']}" if plan["current"] != plan["target"] else f"deploy {plan['target']}"
+            note += f"  WARNING: {plan['warning']}" if plan.get("warning") else ""
+        print(f"  {repo.name:<40} {note}")
+    _shout_blocked(blocked)
+    if args.dry_run or not targets:
+        sys.exit(1 if blocked else 0)
+    if not args.yes:
+        if not sys.stdin.isatty():
+            sys.exit("dlmeta: refusing to run without confirmation, pass --yes")
+        if input(f"Update and deploy {len(targets)} deployment(s), up to {RUN_JOBS} at a time? [y/N] ").strip().lower() != "y":
+            sys.exit(1 if blocked else 0)
+
+    sys.stdout.flush()
+    ensure_rbw()
+    updated = []
+    for repo in targets:
+        if plans[repo.name]["commit"] == _git(repo / "src" / "datalab", "rev-parse", "HEAD"):
+            continue
+        ok, why = _git_try(repo / "src" / "datalab", "checkout", "--quiet", plans[repo.name]["commit"])
+        if ok:
+            updated.append(repo.name)
+        else:
+            blocked[repo.name] = f"could not check out {plans[repo.name]['target']}: {why}"
+    code = _run_batch(repos, ["make", "deploy"], skipped, blocked, stop_on_failure=True)
+    if updated:
+        print(f"src/datalab was updated but not committed in: {', '.join(updated)}")
+    if code:
+        sys.exit(code)
+
+
+def _batch_app(runs: list[BatchRun], stop: threading.Event, stop_on_failure: bool = False):
     """A summary tab plus a tab streaming each deployment's output. Returns whether it was interrupted."""
     from rich.text import Text
     from textual.app import App, ComposeResult
     from textual.binding import Binding
     from textual.widgets import DataTable, Footer, Header, RichLog, TabbedContent, TabPane, Tabs
 
-    ICONS = {"queued": "…", "running": "▶", "ok": "✓", "failed": "✗", "not run": "–", "skipped": "–"}
-    STYLES = {"queued": "dim", "running": "bold cyan", "ok": "green", "failed": "bold red", "not run": "dim", "skipped": "dim"}
+    ICONS = {"queued": "…", "running": "▶", "ok": "✓", "failed": "✗", "blocked": "✗", "not run": "–", "skipped": "–"}
+    STYLES = {"queued": "dim", "running": "bold cyan", "ok": "green", "failed": "bold red", "blocked": "bold red",
+              "not run": "dim", "skipped": "dim"}
     COLUMNS = ["Deployment", "Status", "Time", "Task", "Recap"]
     QUIT_CONFIRM_SECONDS = 5
-    tabs = {f"run-{i}": run for i, run in enumerate(runs) if run.status != "skipped"}
+    tabs = {f"run-{i}": run for i, run in enumerate(runs) if run.status not in ("skipped", "blocked")}
 
     class BatchApp(App[bool]):
         TITLE = "dlmeta run"
@@ -975,7 +1160,7 @@ def _batch_app(runs: list[BatchRun], stop: threading.Event):
                 table.add_row(*[""] * len(COLUMNS), key=str(i))
             self._tick()
             self.set_interval(0.2, self._tick)
-            threading.Thread(target=_execute_batch, daemon=True, args=(runs, stop),
+            threading.Thread(target=_execute_batch, daemon=True, args=(runs, stop, stop_on_failure),
                              kwargs={"on_line": lambda run, line: self.lines.append((run, line))}).start()
 
         @staticmethod
@@ -985,6 +1170,8 @@ def _batch_app(runs: list[BatchRun], stop: threading.Event):
         def _task_text(self, run: BatchRun) -> str:
             if run.status == "skipped":
                 return run.skip_reason or ""
+            if run.status == "blocked":
+                return f"CANNOT UPDATE: {run.blocked_reason}"
             if run.status == "failed":
                 return f"failed at: {run.failed_task}" if run.failed_task else f"exit code {run.code}"
             return run.task or "" if run.status == "running" else ""
@@ -1332,10 +1519,20 @@ def main() -> None:
                         help="row order; `maintenance` and `run` put the stalest first")
     status.set_defaults(func=cmd_status)
     run = sub.add_parser("run", help="run a command in several deployments, e.g. `dlmeta run -- make maintenance`")
-    run.add_argument("--only", action="append", default=[], metavar="GLOB",
-                     help="only these deployments (name or glob, without the -deployment suffix if you like; repeatable)")
-    run.add_argument("--exclude", action="append", default=[], metavar="GLOB", help="leave out these deployments (repeatable)")
-    run.add_argument("--all", action="store_true", help="include inactive deployments")
+    deploy = sub.add_parser("deploy", help="update the datalab submodule of several deployments and deploy them")
+    target = deploy.add_mutually_exclusive_group()
+    target.add_argument("--to", default="latest", metavar="REF",
+                        help="tag, branch or commit (default: latest, the newest release on each deployment's own release line)")
+    target.add_argument("--nightly", dest="to", action="store_const", const=NIGHTLY_REF,
+                        help="the latest commit on upstream's main branch")
+    for batch in (run, deploy):
+        batch.add_argument("--only", action="append", default=[], metavar="GLOB",
+                           help="only these deployments (name or glob, without the -deployment suffix if you like; repeatable)")
+        batch.add_argument("--exclude", action="append", default=[], metavar="GLOB", help="leave out these deployments (repeatable)")
+        batch.add_argument("--all", action="store_true", help="include inactive deployments")
+    deploy.add_argument("--dry-run", "-n", action="store_true", help="fetch and show what would happen")
+    deploy.add_argument("--yes", "-y", action="store_true", help="don't ask for confirmation")
+    deploy.set_defaults(func=cmd_deploy)
     run.add_argument("--rerun-after", type=_duration, metavar="DURATION",
                      help="skip deployments where these make targets succeeded more recently than this, e.g. 12h, 1d, 1w, "
                           "or 0 to always run (default: 1d for `make maintenance`, otherwise 0)")

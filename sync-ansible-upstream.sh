@@ -10,9 +10,10 @@ else
 fi
 
 commit=$(cd src/datalab-ansible-terraform && git describe --tags)
-rsync --exclude vaults --exclude inventory.yml -avr "$TEMPLATE_ROOT/datalab-ansible-terraform/sync-ansible-upstream.sh" "$TEMPLATE_ROOT/datalab-ansible-terraform/Makefile" "$TEMPLATE_ROOT/datalab-ansible-terraform/.vault-pass.sh" "$TEMPLATE_ROOT/datalab-ansible-terraform/README.md" "$TEMPLATE_ROOT/datalab-ansible-terraform/requirements.in" "$TEMPLATE_ROOT/datalab-ansible-terraform/requirements.txt" "$TEMPLATE_ROOT/datalab-ansible-terraform/ansible" .
+rsync --exclude vaults --exclude inventory.yml -avr "$TEMPLATE_ROOT/datalab-ansible-terraform/sync-ansible-upstream.sh" "$TEMPLATE_ROOT/datalab-ansible-terraform/apply-patches.sh" "$TEMPLATE_ROOT/datalab-ansible-terraform/Makefile" "$TEMPLATE_ROOT/datalab-ansible-terraform/.vault-pass.sh" "$TEMPLATE_ROOT/datalab-ansible-terraform/README.md" "$TEMPLATE_ROOT/datalab-ansible-terraform/requirements.in" "$TEMPLATE_ROOT/datalab-ansible-terraform/requirements.txt" "$TEMPLATE_ROOT/datalab-ansible-terraform/ansible" .
 chmod u+x ./.vault-pass.sh
 git add -p ansible
 git add src/datalab-ansible-terraform
+git add apply-patches.sh
 git add $(git ls-files ansible --others --exclude-standard)
-git commit ansible -p -m "Sync with upstream definitions from datalab-ansible-terraform $commit"
+git commit ansible apply-patches.sh -p -m "Sync with upstream definitions from datalab-ansible-terraform $commit"

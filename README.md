@@ -369,6 +369,30 @@ To install plugins on a server deployed with this repository:
 > [!WARNING]
 > Plugins run with full API server privileges; only install plugins from sources you trust.
 
+#### Applying local patches to *datalab*
+
+Small, deployment-specific changes to *datalab* that don't warrant a fork or a plugin can be kept as patch files in `./src/patches/datalab/`.
+When deploying, any `*.patch` files there are applied, in filename order, to a temporary local copy of `./src/datalab`, which is then synced to the server in its place; the `./src/datalab` submodule itself is never modified.
+If any patch does not apply cleanly (e.g., after updating the *datalab* submodule), the deployment fails before anything is synced, and the patch must be regenerated.
+Deployments without a `./src/patches/datalab/` directory are unaffected.
+
+To create a patch, make your changes in `./src/datalab` and export them, including any new or binary files, with e.g.,
+
+```shell
+cd src/datalab
+git add -N <any new files>
+git diff --binary > ../patches/datalab/0001-my-change.patch
+```
+
+The helper script [`apply-patches.sh`](apply-patches.sh) can also be used to apply (or `--revert`) all patches to your local `./src/datalab`, e.g., to test or develop them; patches that are already applied are skipped.
+Running the playbook with `--check` also validates that the patches apply.
+
+Keep patches independent of each other, and squash any that modify the same lines: such a series applies to a clean checkout, but `apply-patches.sh` cannot detect it as already applied, so re-running it on a patched `./src/datalab` will fail.
+
+> [!NOTE]
+> The datalab sync does not delete files on the remote.
+> Files added by a patch stay on the server if the patch is later removed, and files that a patch deletes or renames stay on the server if they were already deployed; these must be removed from the server by hand.
+
 #### Bitwarden integration
 
 Constantly entering the vault password for every attempted deployment can be a

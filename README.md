@@ -368,6 +368,23 @@ Press `x` to start no more deployments, or `q` twice to interrupt those running.
 Anything that needs a prompt (e.g., a vault password when `rbw` has no entry) fails rather than waits.
 Logs for each run are kept in `~/.local/state/dlmeta/logs`.
 
+To update *datalab* and deploy in one step, use `dlmeta deploy`, which first shows each deployment's upgrade and asks for confirmation:
+
+```shell
+dlmeta deploy --only 'demo-*'              # the newest release on each deployment's own release line
+dlmeta deploy --to v0.7.12                 # a specific tag
+dlmeta deploy --to main --only demo-staging  # upstream's branch, or a specific commit
+dlmeta deploy --nightly --only demo-staging  # the latest commit on upstream's main branch
+```
+
+Use `--only` with `--nightly` unless every deployment should be on the development version, as it will move deployments on a release line onto `main` where it can (the plan warns about this).
+Deployments already on the latest commit are skipped, so it is safe to repeat.
+
+The `src/datalab` submodule is only checked out, never staged or committed, so review and commit the result yourself.
+Deployments that cannot be updated are not deployed and are flagged in red before and after the run, with a non-zero exit code: for example, if the fetch fails, `src/datalab` has uncommitted changes, the target is listed under `[flagged]` in the config, the update would lose commits that are not pushed anywhere or, with the default target, the checkout has any commits that the newest release lacks.
+Naming a target with `--to` allows leaving behind commits that are pushed, with a warning, so check what those commits are first.
+Unlike `dlmeta run`, a failed deploy stops any more from starting, though those already running will finish; there is no automatic rollback.
+
 #### Installing *datalab* plugins
 
 *datalab* supports first-party and third-party plugins (custom data blocks, etc.) which extend the API server.

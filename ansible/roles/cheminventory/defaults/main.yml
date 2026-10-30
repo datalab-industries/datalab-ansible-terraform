@@ -14,10 +14,6 @@ cheminventory_cron_frequency: "11 6 * * *"
 # with https:// added if no scheme is given.
 cheminventory_datalab_api_url: "{{ api_url if api_url is match('^https?://') else 'https://' ~ api_url }}"
 
-# The version of the plugin image to run
-cheminventory_image: ghcr.io/datalab-industries/datalab-cheminventory-plugin
-cheminventory_image_version: v1.4.1
-
 # Directory for the sync's env file, which holds the API keys so that they do
 # not appear in the crontab
 cheminventory_config_dir: "{{ docker_user_home_dir }}/cheminventory"

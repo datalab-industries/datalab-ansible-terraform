@@ -1,13 +1,16 @@
 version: 2
 updates:
 - package-ecosystem: docker
-  directories: ["./ansible/roles/nginx/files/", "./ansible/roles/ssl_first_run/files/"]
+  directories: ["./ansible/roles/nginx/files/", "./ansible/roles/ssl_first_run/files/", "./ansible/images/*"]
   schedule:
     interval: "daily"
     time: "05:31"
   target-branch: main
   labels:
   - dependency_updates
+  groups:
+    monitoring:
+      patterns: ["prom/*", "gcr.io/cadvisor/*"]
 - package-ecosystem: "github-actions"
   directory: "/"
   schedule:

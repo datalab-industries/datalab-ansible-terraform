@@ -20,12 +20,22 @@
         path: /etc/timezone
       register: host_timezone
 
+    # Tags are applied so the included tasks run whenever this role does
+    - name: Build monitoring images
+      ansible.builtin.include_tasks:
+        file: "{{ playbook_dir }}/tasks/build_local_image.yml"
+        apply:
+          tags: [always]
+      loop: "{{ ['node-exporter', 'prometheus'] + (['cadvisor'] if monitoring_cadvisor | bool else []) }}"
+      loop_control:
+        loop_var: local_image
+
     - name: Launch node_exporter container
       become: "{{ docker_become }}"
       become_user: "{{ docker_user }}"
       community.docker.docker_container:
         name: node-exporter
-        image: prom/node-exporter:v1.9.1
+        image: datalab-node-exporter
         # The image runs as nobody, which under rootless docker maps to an
         # unrelated host uid that cannot read the borg metrics in docker_user's
         # home; container root is docker_user itself, so use that instead
@@ -67,7 +77,7 @@
       become_user: "{{ docker_user }}"
       community.docker.docker_container:
         name: cadvisor
-        image: gcr.io/cadvisor/cadvisor:v0.52.1
+        image: datalab-cadvisor
         network_mode: host
         pid_mode: host
         state: healthy
@@ -119,7 +129,7 @@
       become_user: "{{ docker_user }}"
       community.docker.docker_container:
         name: prometheus
-        image: prom/prometheus:v3.6.0
+        image: datalab-prometheus
         recreate: "{{ prometheus_config.changed }}"
         network_mode: host
         state: healthy

@@ -11,14 +11,15 @@
   community.docker.docker_volume:
     name: certbot-www
 
-- name: Build/pull certbot image
-  become: "{{ docker_become }}"
-  become_user: "{{ docker_user }}"
-  community.docker.docker_image:
-    name: certbot/certbot:latest
-    source: pull
-    state: present
-    force_source: true
+# Tags are applied so the included tasks run whenever this role does
+- name: Build certbot image
+  ansible.builtin.include_tasks:
+    file: "{{ playbook_dir }}/tasks/build_local_image.yml"
+    apply:
+      tags: [always]
+  loop: [certbot]
+  loop_control:
+    loop_var: local_image
 
 - name: Synchronize nginx files to remote
   ansible.posix.synchronize:
@@ -73,7 +74,7 @@
   become_user: "{{ docker_user }}"
   community.docker.docker_container:
     name: datalab-certbot
-    image: certbot/certbot:latest
+    image: datalab-certbot
     network_mode: host
     volumes:
       - certbot-conf:/etc/letsencrypt
@@ -99,4 +100,4 @@
     hour: "10"
     weekday: "2"
     month: "*"
-    job: export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; (docker run --rm -v certbot-www:/var/www/certbot -v certbot-conf:/etc/letsencrypt certbot/certbot:latest renew && docker exec datalab-nginx nginx -s reload) > {{ docker_user_home_dir }}/last_ssl_renewal.txt 2>&1 || cat {{ docker_user_home_dir }}/last_ssl_renewal.txt  # noqa: line-length
+    job: export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; (docker run --rm -v certbot-www:/var/www/certbot -v certbot-conf:/etc/letsencrypt datalab-certbot renew && docker exec datalab-nginx nginx -s reload) > {{ docker_user_home_dir }}/last_ssl_renewal.txt 2>&1 || cat {{ docker_user_home_dir }}/last_ssl_renewal.txt  # noqa: line-length

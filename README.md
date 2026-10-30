@@ -507,8 +507,8 @@ This lists the key's default inventory and any other inventories it can
 access, each with its ID in brackets, e.g., `Default inventory: My Lab (12345)`.
 
 The sync targets the host's `api_url` by default (override with
-`cheminventory_datalab_api_url`), and the plugin version can be set with
-`cheminventory_image_version`.
+`cheminventory_datalab_api_url`), and the plugin version is pinned in
+`ansible/images/cheminventory/Dockerfile`.
 The API keys are written to an env file readable only by the docker user,
 rather than into the crontab, and the output of the latest sync is written to
 `~/last_cheminventory_sync.txt`.

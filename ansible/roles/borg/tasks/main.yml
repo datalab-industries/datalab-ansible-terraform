@@ -68,14 +68,15 @@
         mode: "0600"
         owner: "{{ omit if docker_rootless else ansible_ssh_user }}"
 
-    - name: Pull borgmatic image
-      become: "{{ docker_become }}"
-      become_user: "{{ docker_user }}"
-      community.docker.docker_image:
-        name: ghcr.io/borgmatic-collective/borgmatic:2
-        source: pull
-        state: present
-        force_source: true
+    # Tags are applied so the included tasks run whenever this role does
+    - name: Build borgmatic image
+      ansible.builtin.include_tasks:
+        file: "{{ playbook_dir }}/tasks/build_local_image.yml"
+        apply:
+          tags: [always]
+      loop: [borgmatic]
+      loop_control:
+        loop_var: local_image
 
     # Run in the foreground so failures surface; borgmatic skips creation and
     # says so if the repository already exists. The image's init entrypoint is
@@ -84,7 +85,7 @@
       become: "{{ docker_become }}"
       become_user: "{{ docker_user }}"
       community.docker.docker_container:
-        image: ghcr.io/borgmatic-collective/borgmatic:2
+        image: datalab-borgmatic
         name: datalab-borgmatic-init
         hostname: "{{ borg_container_hostname }}"
         env:
@@ -114,4 +115,4 @@
         name: borgmatic
         hour: "2"
         minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
-        job: PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }} timeout 6h docker run --rm --network datalab_backend --name datalab-borgmatic --hostname {{ borg_container_hostname }} -e BORG_HOST_ID={{ borg_container_hostname }} -v {{ borg_config_dir }}/config.yaml:/etc/borgmatic.d/config.yaml -v {{ borg_config_dir }}/.ssh:/root/.ssh -v /data:/data -v {{ borg_cache_dir }}:/root/.cache/borg -v {{ borg_config_dir }}:/borgmatic:ro -v {{ borg_textfile_collector_path }}:/metrics --entrypoint borgmatic ghcr.io/borgmatic-collective/borgmatic:2 -v 1 > {{ docker_user_home_dir }}/last_borgmatic.txt 2>&1 || cat {{ docker_user_home_dir }}/last_borgmatic.txt  # noqa: line-length
+        job: PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }} timeout 6h docker run --rm --network datalab_backend --name datalab-borgmatic --hostname {{ borg_container_hostname }} -e BORG_HOST_ID={{ borg_container_hostname }} -v {{ borg_config_dir }}/config.yaml:/etc/borgmatic.d/config.yaml -v {{ borg_config_dir }}/.ssh:/root/.ssh -v /data:/data -v {{ borg_cache_dir }}:/root/.cache/borg -v {{ borg_config_dir }}:/borgmatic:ro -v {{ borg_textfile_collector_path }}:/metrics --entrypoint borgmatic datalab-borgmatic -v 1 > {{ docker_user_home_dir }}/last_borgmatic.txt 2>&1 || cat {{ docker_user_home_dir }}/last_borgmatic.txt  # noqa: line-length

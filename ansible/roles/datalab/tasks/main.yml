@@ -225,6 +225,9 @@
 # images of built services, so build explicitly with --pull to pick up updates to
 # floating base image tags (e.g. mongo:8-noble). The launch tasks below then use
 # these images rather than rebuilding.
+# Services are built one at a time so that smaller hosts are not running the
+# webapp bundle alongside the other builds; the app build reuses the cached API
+# image for its `service:` context.
 - name: Build datalab images, pulling latest base images
   become: "{{ docker_become }}"
   become_user: "{{ docker_user }}"
@@ -234,8 +237,12 @@
       --env-file pydatalab/.env
       --env-file webapp/.env
       --env-file .env_version
-      build --pull database api app
+      build --pull {{ item }}
     chdir: "{{ ansible_user_home_dir }}/datalab"
+  loop:
+    - database
+    - api
+    - app
   # Container recreation is reported by the launch tasks below
   changed_when: false
 

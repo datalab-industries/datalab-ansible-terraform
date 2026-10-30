@@ -344,14 +344,6 @@ argument_specs:
         type: str
         required: false
         description: When the sync runs, as a five field cron expression.
-      cheminventory_image:
-        type: str
-        required: false
-        description: Container image of the sync plugin.
-      cheminventory_image_version:
-        type: str
-        required: false
-        description: Version of the plugin image to run.
       cheminventory_config_dir:
         type: str
         required: false

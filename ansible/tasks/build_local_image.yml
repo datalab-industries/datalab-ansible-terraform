@@ -1,0 +1,26 @@
+---
+# Build one of the images in ansible/images/ on the host, tagged as
+# datalab-<local_image>. Each is a single pinned FROM line, so that dependabot
+# can track the upstream version; building it just tags the pulled base image.
+#
+# Required vars:
+#   local_image: the name of the directory under ansible/images/
+- name: Copy {{ local_image }} Dockerfile to remote
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/images/{{ local_image }}/"
+    dest: "{{ docker_user_home_dir }}/images/{{ local_image }}/"
+    mode: "0644"
+    directory_mode: "0755"
+
+- name: Build {{ local_image }} image
+  become: "{{ docker_become }}"
+  become_user: "{{ docker_user }}"
+  community.docker.docker_image:
+    name: datalab-{{ local_image }}
+    source: build
+    state: present
+    force_source: true
+    build:
+      path: "{{ docker_user_home_dir }}/images/{{ local_image }}"

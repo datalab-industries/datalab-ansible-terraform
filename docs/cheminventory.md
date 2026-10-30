@@ -36,7 +36,7 @@ The role is skipped unless the three required settings are present.
 
 - The sync targets the host's `api_url` by default.
   Override it with `cheminventory_datalab_api_url`.
-- The plugin version is set with `cheminventory_image_version`.
+- The plugin version is pinned in `ansible/images/cheminventory/Dockerfile`.
 - The API keys are written to an env file that only the docker user can read, rather than into the crontab.
 - The output of the latest sync is written to `~/last_cheminventory_sync.txt` in the docker user's home directory.
 - Failed syncs can be emailed (see [Emails for failed cron jobs](cron-email.md)).

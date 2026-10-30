@@ -14,5 +14,6 @@ rsync --exclude vaults --exclude inventory.yml -avr "$TEMPLATE_ROOT/datalab-ansi
 chmod u+x ./.vault-pass.sh
 git add -p ansible
 git add src/datalab-ansible-terraform
+git add apply-patches.sh
 git add $(git ls-files ansible --others --exclude-standard)
-git commit ansible -p -m "Sync with upstream definitions from datalab-ansible-terraform $commit"
+git commit ansible apply-patches.sh -p -m "Sync with upstream definitions from datalab-ansible-terraform $commit"

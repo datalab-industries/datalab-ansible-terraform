@@ -4,7 +4,9 @@
 # Patches live in src/patches/<name>/*.patch and are applied, in filename order,
 # to the checkout at src/<name> (e.g. src/patches/datalab/ -> src/datalab).
 # Patches that are already applied are skipped, so this is safe to re-run.
-# Any patch that does not apply cleanly aborts the whole run with a non-zero exit code.
+# Any patch that does not apply (or revert) cleanly aborts the whole run with a non-zero
+# exit code. Patches in a series should be independent: a patch that modifies lines changed
+# by an earlier patch applies to a clean checkout, but cannot be detected as already applied.
 #
 # Usage:
 #   ./apply-patches.sh [--revert] [<name>...]
@@ -43,6 +45,10 @@ if [ ${#names[@]} -eq 0 ]; then
     for patch_dir in "$PATCHES_ROOT"/*/; do
         names+=("$(basename "$patch_dir")")
     done
+    if [ ${#names[@]} -eq 0 ]; then
+        echo "No patches found in $PATCHES_ROOT; nothing to do."
+        exit 0
+    fi
 fi
 
 for name in "${names[@]}"; do
@@ -58,18 +64,28 @@ for name in "${names[@]}"; do
     fi
 
     if [ "$revert" = true ]; then
-        mapfile -t patches < <(printf '%s\n' "${patches[@]}" | sort -r)
+        reversed=()
+        for ((i = ${#patches[@]} - 1; i >= 0; i--)); do
+            reversed+=("${patches[i]}")
+        done
+        patches=("${reversed[@]}")
     fi
 
     for patch in "${patches[@]}"; do
-        patch_path=$(realpath "$patch")
+        patch_path="$(cd "$(dirname "$patch")" && pwd)/$(basename "$patch")"
         label="$name/$(basename "$patch")"
         if [ "$revert" = true ]; then
             if git -C "$target" apply --check --reverse "$patch_path" 2>/dev/null; then
                 git -C "$target" apply --reverse "$patch_path"
                 echo "Reverted  $label"
-            else
+            elif git -C "$target" apply --check "$patch_path" 2>/dev/null; then
                 echo "Skipping  $label (not applied)"
+            else
+                echo "Error: $label cannot be reverted cleanly from $target:" >&2
+                git -C "$target" apply --check --reverse "$patch_path" || true
+                echo "The patch appears to be applied but its files have since changed:" >&2
+                echo "resolve those changes by hand and re-run." >&2
+                exit 1
             fi
         else
             if git -C "$target" apply --check --reverse "$patch_path" 2>/dev/null; then

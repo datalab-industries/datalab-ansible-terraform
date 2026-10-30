@@ -385,9 +385,13 @@ git diff --binary > ../patches/datalab/0001-my-change.patch
 ```
 
 The helper script [`apply-patches.sh`](apply-patches.sh) can also be used to apply (or `--revert`) all patches to your local `./src/datalab`, e.g., to test or develop them; patches that are already applied are skipped.
+Running the playbook with `--check` also validates that the patches apply.
+
+Keep patches independent of each other, and squash any that modify the same lines: such a series applies to a clean checkout, but `apply-patches.sh` cannot detect it as already applied, so re-running it on a patched `./src/datalab` will fail.
 
 > [!NOTE]
-> Files added by a patch are not removed from the server if the patch is later deleted, as the datalab sync does not delete files on the remote.
+> The datalab sync does not delete files on the remote.
+> Files added by a patch stay on the server if the patch is later removed, and files that a patch deletes or renames stay on the server if they were already deployed; these must be removed from the server by hand.
 
 #### Bitwarden integration
 

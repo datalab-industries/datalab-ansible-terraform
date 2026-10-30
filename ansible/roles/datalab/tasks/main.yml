@@ -42,9 +42,12 @@
 
 - name: Sync datalab to remote, via a patched local copy if there are patches
   block:
+    # Staging only touches a local temporary directory, so it also runs under --check,
+    # which additionally validates the patches; the sync below is still a dry run
     - name: Stage a patched copy of the datalab submodule
       when: datalab_is_patched
       delegate_to: localhost
+      check_mode: false
       block:
         - name: Create local staging directory for patched datalab
           ansible.builtin.tempfile:
@@ -87,6 +90,7 @@
         path: "{{ datalab_staging.path }}"
         state: absent
       delegate_to: localhost
+      check_mode: false
 
 - name: Check for plugin folder
   ansible.builtin.stat:

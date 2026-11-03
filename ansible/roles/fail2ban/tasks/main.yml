@@ -31,6 +31,19 @@
     mode: "0644"
   notify: restart fail2ban
 
+# Stricter per-jail settings (e.g., week-long sshd bans). fail2ban reads
+# jail.d/*.local after jail.local, so these override the generated jails.
+- name: Copy jail overrides
+  become: true
+  when: ansible_distribution == 'Ubuntu'
+  ansible.builtin.copy:
+    src: jail.d/
+    dest: /etc/fail2ban/jail.d/
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart fail2ban
+
 - name: Copy filters
   become: true
   when: ansible_distribution == 'Ubuntu'

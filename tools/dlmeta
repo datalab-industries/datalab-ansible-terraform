@@ -11,6 +11,7 @@
   dlmeta status       table of every deployment (local state + ledger + last probe)
   dlmeta run          run a command in several deployments, e.g. `dlmeta run -- make maintenance`
   dlmeta deploy       update their datalab submodules (without committing) and run `make deploy`
+  dlmeta sync         update their ansible-terraform submodules and run the interactive sync script in each
   dlmeta discover     read each repo's api_url from its encrypted inventory (needs rbw)
   dlmeta probe        query each deployment's public /info endpoint for its live version
   dlmeta dashboard    write dashboard.html (runs `probe` first unless --no-probe)
@@ -77,6 +78,9 @@ PROBE_TIMEOUT = 5
 RUN_JOBS = 8
 # What `dlmeta deploy --nightly` deploys: the remote's branch, as a local one may be long out of date
 NIGHTLY_REF = "origin/main"
+# What `dlmeta sync` runs in a deployment, and everything that the script overwrites
+SYNC_SCRIPT = "sync-ansible-upstream.sh"
+SYNC_PATHS = ("ansible", "Makefile", ".vault-pass.sh", "README.md", "requirements.in", "requirements.txt", SYNC_SCRIPT)
 # `dlmeta run -- make maintenance` skips deployments that succeeded more recently than this (seconds)
 MAINTENANCE_RERUN_AFTER = 24 * 3600
 # Per-repo limit for decrypting an inventory during `discover`
@@ -120,6 +124,11 @@ def _git(repo: Path, *args: str) -> str | None:
                               check=True, timeout=30).stdout.strip()
     except (subprocess.SubprocessError, OSError):
         return None
+
+
+def _porcelain_paths(status: str | None) -> list[str]:
+    """The paths in `git status --porcelain` output, whose first line may have lost its leading space."""
+    return [line.split(None, 1)[1] for line in (status or "").splitlines()]
 
 
 def _repo_env() -> dict[str, str]:
@@ -224,7 +233,7 @@ def local_state(repo: Path) -> dict:
         "local_commit": (_git(submodule, "rev-parse", "HEAD") or "")[:8],
         "ansible_version": _git(rules, "describe", "--tags", "--dirty") if rules.is_dir() else None,
         "ansible_local_changes": rules_differ,
-        "uncommitted": [line[3:] for line in status.splitlines()],
+        "uncommitted": _porcelain_paths(status),
         "vault_pass": (repo / ".vault-pass.sh").is_file(),
         "makefile": (repo / "Makefile").is_file(),
         "inactive": inactive().get(repo.name),
@@ -277,6 +286,7 @@ def ledger_summary(runs: list[dict]) -> dict:
         "last_run_tags": ",".join(last.get("tags") or []),
         "last_success": last_ok.get("started"),
         "deployed_version": deploys[-1].get("datalab_version") if deploys else None,
+        "deployed_commit": deploys[-1].get("commit") if deploys else None,
         "last_deploy": deploys[-1]["started"] if deploys else None,
         "last_maintenance": maintenance[-1]["started"] if maintenance else None,
         "commit": (last_ok.get("commit") or "")[:8],
@@ -946,14 +956,14 @@ def _run_batch(repos: list[Path], command: list[str], skipped: dict[str, str] | 
     return 1 if blocked or any(run.status == "failed" for run in runs) else 0
 
 
-def _shout_blocked(blocked: dict[str, str]) -> None:
+def _shout_blocked(blocked: dict[str, str], not_done: str = "DEPLOYED") -> None:
     from rich.console import Console
     from rich.text import Text
 
     if blocked:
         console = Console(highlight=False)
         console.print()
-        console.print(Text(f" CANNOT UPDATE {len(blocked)} DEPLOYMENT(S): THESE WERE NOT DEPLOYED ", style="bold red reverse"))
+        console.print(Text(f" CANNOT UPDATE {len(blocked)} DEPLOYMENT(S): THESE WERE NOT {not_done} ", style="bold red reverse"))
         for name, reason in sorted(blocked.items()):
             console.print(Text(f"  {name}: {reason}", style="bold red"))
         console.print()
@@ -981,33 +991,36 @@ def _git_try(repo: Path, *args: str, timeout: int = 120) -> tuple[bool, str]:
     return True, proc.stdout.strip()
 
 
-def _latest_on_track(tags: list[str], current: str) -> str | None:
-    """Newest tag on the release line of `current`, with pre-releases only if that is one too."""
+def _latest_on_track(tags: list[str], current: str, by_track: bool = True) -> str | None:
+    """Newest tag on the release line of `current` (or on any, with by_track=False, for repos without
+    maintained release lines), with pre-releases only if `current` is one too."""
     version = _parse(current)
-    if version is None:
+    if version is None and by_track:
         return None
-    candidates = [(v, tag) for tag in tags if (v := _parse(tag)) is not None and v.release[:2] == version.release[:2]
-                  and (version.is_prerelease or not v.is_prerelease)]
+    candidates = [(v, tag) for tag in tags if (v := _parse(tag)) is not None
+                  and (not by_track or v.release[:2] == version.release[:2])
+                  and ((version is not None and version.is_prerelease) or not v.is_prerelease)]
     return max(candidates, key=lambda c: c[0])[1] if candidates else None
 
 
-def _plan_update(repo: Path, to: str, deployed: str | None) -> dict:
-    """Work out what updating to `to` means for this repo, changing nothing but its remote refs.
-    The result has `blocked` if it can't be done, and otherwise `commit` to check out."""
-    submodule = repo / "src" / "datalab"
+def _plan_update(repo: Path, to: str, deployed: str | None, kind: str = "datalab") -> dict:
+    """Work out what updating `kind`'s submodule to `to` means for this repo, changing nothing but its
+    remote refs. The result has `blocked` if it can't be done, and otherwise `commit` to check out."""
+    path = SOURCES[kind][1]
+    submodule = repo / path
     if not (repo / "Makefile").is_file():
         return {"blocked": "no Makefile"}
     # Otherwise git would quietly operate on the deployment repo itself
     if not (submodule / ".git").exists():
-        return {"blocked": "src/datalab is not checked out"}
+        return {"blocked": f"{path} is not checked out"}
     ok, status = _git_try(submodule, "status", "--porcelain")
     if not ok:
-        return {"blocked": f"could not read src/datalab: {status}"}
+        return {"blocked": f"could not read {path}: {status}"}
     if status:
-        return {"blocked": f"src/datalab has {len(status.splitlines())} uncommitted change(s)"}
+        return {"blocked": f"{path} has {len(status.splitlines())} uncommitted change(s)"}
     ok, head = _git_try(submodule, "rev-parse", "HEAD")
     if not ok:
-        return {"blocked": f"could not read src/datalab: {head}"}
+        return {"blocked": f"could not read {path}: {head}"}
     current = _git(submodule, "describe", "--tags", "--match", "v*") or head[:8]
     # A failure here must not fall back on local tags: "latest" would silently be out of date.
     # Not --quiet, which also hides why a ref was rejected, e.g., because a tag moved upstream.
@@ -1018,7 +1031,7 @@ def _plan_update(repo: Path, to: str, deployed: str | None) -> dict:
     ref = to
     if to == "latest":
         ok, tags = _git_try(submodule, "tag", "--list", "v*")
-        ref = _latest_on_track(tags.split(), current) if ok else None
+        ref = _latest_on_track(tags.split(), current, by_track=kind == "datalab") if ok else None
         if ref is None:
             return {"blocked": f"no release found on the same line as {current}, use --to", "current": current}
     # A branch name means upstream's, as the local one may be long out of date
@@ -1031,14 +1044,14 @@ def _plan_update(repo: Path, to: str, deployed: str | None) -> dict:
     name = _git(submodule, "describe", "--tags", "--match", "v*", commit) or commit[:8]
     plan = {"current": current, "target": name, "commit": commit}
     warnings = []
-    reason = flagged_reason(name)
+    reason = flagged_reason(name, kind)
     if reason:
         # A commit after a flagged release may well be the fix for it, so that is for the user to judge
         if not re.search(r"-\d+-g[0-9a-f]+$", name):
             return {"blocked": f"{name} is flagged: {reason}", "current": current}
         warnings.append(f"follows a flagged release: {reason}")
     current_version, target_version = _parse(current), _parse(name)
-    if current_version and target_version and current_version.release[:2] != target_version.release[:2]:
+    if kind == "datalab" and current_version and target_version and current_version.release[:2] != target_version.release[:2]:
         warnings.append("changes release line")
     if commit == head:
         return {**plan, "up_to_date": deployed == current, "warning": "; ".join(warnings)}
@@ -1057,6 +1070,14 @@ def _plan_update(repo: Path, to: str, deployed: str | None) -> dict:
     return {**plan, "warning": "; ".join(warnings)}
 
 
+def _deployed_version(repo: Path, runs: list[dict]) -> str | None:
+    """The datalab version last deployed, or None if the playbooks or vaults have changed since then,
+    e.g., by `dlmeta sync`, which means it needs deploying even if that version is still the target."""
+    ledger = ledger_summary(runs)
+    unchanged = ledger["deployed_commit"] and _git_try(repo, "diff", "--quiet", ledger["deployed_commit"], "HEAD", "--", "ansible")[0]
+    return ledger["deployed_version"] if unchanged else None
+
+
 def cmd_deploy(args) -> None:
     repos = select_repos(args.only, args.exclude, args.all)
     if not repos:
@@ -1065,7 +1086,7 @@ def cmd_deploy(args) -> None:
     print(f"Fetching {len(repos)} datalab submodule(s)…", flush=True)
     with concurrent.futures.ThreadPoolExecutor(max_workers=RUN_JOBS) as pool:
         plans = dict(zip((r.name for r in repos), pool.map(
-            lambda r: _plan_update(r, args.to, ledger_summary(ledger.get(r.name, []))["deployed_version"]), repos)))
+            lambda r: _plan_update(r, args.to, _deployed_version(r, ledger.get(r.name, []))), repos)))
 
     targets, skipped, blocked = [], {}, {}
     print("Command: make deploy")
@@ -1107,6 +1128,122 @@ def cmd_deploy(args) -> None:
         print(f"src/datalab was updated but not committed in: {', '.join(updated)}")
     if code:
         sys.exit(code)
+
+
+def _supported_datalab_warning(repo: Path, commit: str, name: str) -> str | None:
+    """A warning if the "Supported versions" table in the README at `commit` of the rules submodule
+    has a row for that release that doesn't include the deployment's datalab version."""
+    rules = repo / SOURCES["rules"][1]
+    version, datalab = _parse(name), _parse(_git(repo / SOURCES["datalab"][1], "describe", "--tags", "--match", "v*") or "")
+    readme = _git(rules, "show", f"{commit}:README.md") or ""
+    if version is None or datalab is None:
+        return None
+    rows = re.findall(r"^\|\s*v(\d+\.\d+)\.x\s*\|\s*(v(\d+\.\d+)\.x\S*)\s*\|", readme, flags=re.M)
+    supported = [(line, shown) for rules_line, shown, line in rows if rules_line == f"{version.release[0]}.{version.release[1]}"]
+    if not supported or f"{datalab.release[0]}.{datalab.release[1]}" in [line for line, _ in supported]:
+        return None
+    return f"its README lists datalab {', '.join(shown for _, shown in supported)}, this is on {datalab}"
+
+
+def _plan_sync(repo: Path, to: str) -> dict:
+    """As _plan_update, for the rules submodule, also refusing whatever the script would make a mess of."""
+    plan = _plan_update(repo, to, None, "rules")
+    if "blocked" in plan:
+        return plan
+    blocked = {"current": plan["current"]}
+    path = SOURCES["rules"][1]
+    if not _git_try(repo, "symbolic-ref", "--quiet", "HEAD")[0]:
+        return {**blocked, "blocked": "not on a branch, so there is nowhere to commit the sync"}
+    if not _git_try(repo / path, "cat-file", "-e", f"{plan['commit']}:{SYNC_SCRIPT}")[0]:
+        return {**blocked, "blocked": f"{plan['target']} has no {SYNC_SCRIPT}"}
+    # The script commits everything already staged, overwrites these paths, and adds anything
+    # untracked under ansible/ (which could be a decrypted vault)
+    ok, staged = _git_try(repo, "diff", "--cached", "--name-only")
+    ok2, dirty = _git_try(repo, "status", "--porcelain", "--", *SYNC_PATHS)
+    if not (ok and ok2):
+        return {**blocked, "blocked": "could not read the state of the repo"}
+    if staged:
+        return {**blocked, "blocked": f"{len(staged.splitlines())} staged change(s) would be committed, e.g., {staged.splitlines()[0]}"}
+    if dirty:
+        return {**blocked, "blocked": f"{len(dirty.splitlines())} uncommitted change(s) would be overwritten or committed, "
+                                      f"e.g., {_porcelain_paths(dirty)[0]}"}
+    warnings = list(filter(None, (plan.get("warning"), _supported_datalab_warning(repo, plan["commit"], plan["target"]))))
+    plan["warning"] = "; ".join(warnings)
+    if plan["commit"] == _git(repo / path, "rev-parse", "HEAD") and not _git(repo, "status", "--porcelain", "--", path):
+        # A submodule that was updated without syncing, or local changes to the playbooks
+        if not local_state(repo)["ansible_local_changes"]:
+            plan["up_to_date"] = True
+        else:
+            plan["note"] = f"re-sync, as ansible/ differs from {plan['target']}"
+    return plan
+
+
+def cmd_sync(args) -> None:
+    repos = select_repos(args.only, args.exclude, args.all)
+    if not repos:
+        sys.exit("dlmeta: no deployments selected")
+    if not shutil.which("rsync"):
+        sys.exit(f"dlmeta: {SYNC_SCRIPT} needs rsync")
+    path = SOURCES["rules"][1]
+    print(f"Fetching {len(repos)} {path} submodule(s)…", flush=True)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=RUN_JOBS) as pool:
+        plans = dict(zip((r.name for r in repos), pool.map(lambda r: _plan_sync(r, args.to), repos)))
+
+    targets, blocked = [], {}
+    for repo in repos:
+        plan = plans[repo.name]
+        if "blocked" in plan:
+            blocked[repo.name] = plan["blocked"]
+            note = "CANNOT UPDATE"
+        elif plan.get("up_to_date"):
+            note = f"skip: already synced with {plan['current']}"
+        else:
+            targets.append(repo)
+            note = plan.get("note") or f"{plan['current']} → {plan['target']}"
+            note += f"  WARNING: {plan['warning']}" if plan.get("warning") else ""
+        print(f"  {repo.name:<40} {note}")
+    _shout_blocked(blocked, "SYNCED")
+    if args.dry_run or not targets:
+        sys.exit(1 if blocked else 0)
+    if not sys.stdin.isatty():
+        sys.exit("dlmeta: syncing asks which changes to commit, so it needs a terminal")
+    if input(f"Sync {len(targets)} deployment(s), reviewing each one's changes in turn? [y/N] ").strip().lower() != "y":
+        sys.exit(1 if blocked else 0)
+
+    results: dict[str, str] = {}
+    failed = False
+    try:
+        for i, repo in enumerate(targets):
+            plan = plans[repo.name]
+            print(f"\n=== {repo.name} ({i + 1}/{len(targets)}): {plan['current']} → {plan['target']}\n", flush=True)
+            ok, why = _git_try(repo / path, "checkout", "--quiet", plan["commit"])
+            if not ok:
+                blocked[repo.name] = f"could not check out {plan['target']}: {why}"
+                continue
+            before = _git(repo, "rev-parse", "HEAD")
+            # Its upstream copy, as the deployment's own may be old, and is overwritten while running
+            code = subprocess.run(["bash", str(repo / path / SYNC_SCRIPT)], cwd=repo, env=_repo_env()).returncode
+            results[repo.name] = "committed" if _git(repo, "rev-parse", "HEAD") != before else "nothing committed"
+            if code != 0:
+                results[repo.name] = f"FAILED with exit code {code}, {results[repo.name]}"
+                failed = True
+                if i + 1 < len(targets) and input("\nContinue with the next deployment? [y/N] ").strip().lower() != "y":
+                    break
+    except KeyboardInterrupt:
+        results.setdefault(repo.name, "INTERRUPTED")
+        failed = True
+
+    print("\nSummary:")
+    for repo in repos:
+        if repo.name not in results:
+            continue
+        print(f"  {repo.name:<40} {results[repo.name]}")
+        for left in _porcelain_paths(_git(repo, "status", "--porcelain", "--", *SYNC_PATHS, path)):
+            print(f"    left uncommitted: {left}")
+    if results:
+        print("Nothing has been pushed or deployed. Review what is left uncommitted above, then push and `dlmeta deploy`.")
+    _shout_blocked(blocked, "SYNCED")
+    sys.exit(1 if blocked or failed else 0)
 
 
 def _batch_app(runs: list[BatchRun], stop: threading.Event, stop_on_failure: bool = False):
@@ -1520,12 +1657,13 @@ def main() -> None:
     status.set_defaults(func=cmd_status)
     run = sub.add_parser("run", help="run a command in several deployments, e.g. `dlmeta run -- make maintenance`")
     deploy = sub.add_parser("deploy", help="update the datalab submodule of several deployments and deploy them")
-    target = deploy.add_mutually_exclusive_group()
-    target.add_argument("--to", default="latest", metavar="REF",
-                        help="tag, branch or commit (default: latest, the newest release on each deployment's own release line)")
-    target.add_argument("--nightly", dest="to", action="store_const", const=NIGHTLY_REF,
-                        help="the latest commit on upstream's main branch")
-    for batch in (run, deploy):
+    sync = sub.add_parser("sync", help="update the ansible-terraform submodule of several deployments and run the interactive sync script")
+    for updater, latest in ((deploy, "the newest release on each deployment's own release line"), (sync, "the newest release")):
+        target = updater.add_mutually_exclusive_group()
+        target.add_argument("--to", default="latest", metavar="REF", help=f"tag, branch or commit (default: latest, {latest})")
+        target.add_argument("--nightly", dest="to", action="store_const", const=NIGHTLY_REF,
+                            help="the latest commit on upstream's main branch")
+    for batch in (run, deploy, sync):
         batch.add_argument("--only", action="append", default=[], metavar="GLOB",
                            help="only these deployments (name or glob, without the -deployment suffix if you like; repeatable)")
         batch.add_argument("--exclude", action="append", default=[], metavar="GLOB", help="leave out these deployments (repeatable)")
@@ -1533,6 +1671,8 @@ def main() -> None:
     deploy.add_argument("--dry-run", "-n", action="store_true", help="fetch and show what would happen")
     deploy.add_argument("--yes", "-y", action="store_true", help="don't ask for confirmation")
     deploy.set_defaults(func=cmd_deploy)
+    sync.add_argument("--dry-run", "-n", action="store_true", help="fetch and show what would happen")
+    sync.set_defaults(func=cmd_sync)
     run.add_argument("--rerun-after", type=_duration, metavar="DURATION",
                      help="skip deployments where these make targets succeeded more recently than this, e.g. 12h, 1d, 1w, "
                           "or 0 to always run (default: 1d for `make maintenance`, otherwise 0)")

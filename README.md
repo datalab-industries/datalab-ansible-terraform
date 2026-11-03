@@ -391,6 +391,23 @@ Deployments that cannot be updated are not deployed and are flagged in red befor
 Naming a target with `--to` allows leaving behind commits that are pushed, with a warning, so check what those commits are first.
 Unlike `dlmeta run`, a failed deploy stops any more from starting, though those already running will finish; there is no automatic rollback.
 
+To update the playbooks themselves, use `dlmeta sync`, which updates each deployment's `src/datalab-ansible-terraform` submodule and then runs upstream's copy of `sync-ansible-upstream.sh` in it:
+
+```shell
+dlmeta sync -n                 # show the plan, with a warning for any datalab version outside the new release's supported versions
+dlmeta sync --only 'demo-*'    # the newest release
+dlmeta sync --to v0.9.0        # a specific tag, branch or commit (or --nightly for the latest commit on main)
+dlmeta deploy                  # then deploy, which also picks up deployments whose ansible/ has changed since their last deploy
+```
+
+The script asks which changes to commit, so deployments are done one at a time and it needs a terminal.
+It commits locally, but nothing is pushed or deployed.
+Deployments are not synced, and are flagged in red, if the repo has staged changes, uncommitted changes in the files that the script overwrites (which includes anything untracked under `ansible/`, as the script would add it), or is not on a branch, as well as for the reasons given above for `dlmeta deploy`.
+
+The script only commits `ansible/` and the submodule, so `Makefile`, `README.md`, `requirements.*`, `sync-ansible-upstream.sh` and `.vault-pass.sh` may be left uncommitted, as are any hunks that you decline: the script asks about those a second time, and the upstream version then stays in your working tree, where it would be deployed.
+The submodule update is committed even if you decline every hunk.
+`dlmeta sync` lists what was left uncommitted so that you can commit or `git restore` it, and will not sync that deployment again until you have.
+
 #### Installing *datalab* plugins
 
 *datalab* supports first-party and third-party plugins (custom data blocks, etc.) which extend the API server.

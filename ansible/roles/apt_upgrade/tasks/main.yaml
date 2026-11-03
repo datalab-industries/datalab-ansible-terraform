@@ -56,22 +56,46 @@
   failed_when: false
   check_mode: false
 
-# Only the repos are required: a semi-managed host may get them from a mirror
-# without being registered, so registration just adds a hint to the message
-- name: Fail if BaseOS/AppStream repos are not enabled (RedHat)
+# Checking repo names is not enough: a host can still have e.g. frozen install-media
+# repos called "baseos"/"appstream" enabled. Instead, require that the enabled repos
+# offer a kernel at least as new as the newest installed one, which a working OS
+# repo always does (the installed kernel came from it), but a stale one does not.
+- name: Compare newest available and installed kernels (RedHat)
+  become: true
   when: ansible_os_family == 'RedHat'
+  ansible.builtin.shell: |
+    set -o pipefail
+    installed=$(rpm -q --qf '%{VERSION}-%{RELEASE}\n' kernel-core | sort -V | tail -n1)
+    available=$(dnf -q repoquery --available --latest-limit 1 --qf '%{VERSION}-%{RELEASE}' kernel-core | sort -V | tail -n1)
+    newest=$(printf '%s\n%s\n' "$installed" "$available" | sort -V | tail -n1)
+    echo "installed=$installed"
+    echo "available=${available:-none}"
+    if [ -n "$available" ] && [ "$newest" = "$available" ]; then echo "ok=true"; else echo "ok=false"; fi
+  args:
+    executable: /bin/bash
+  register: dnf_kernel_check
+  changed_when: false
+  check_mode: false
+
+# A semi-managed host may get its OS repos from a mirror without being
+# registered, so registration only adds a hint to the message
+- name: Fail if the OS repos cannot provide kernel updates (RedHat)
+  when: ansible_os_family == 'RedHat'
+  vars:
+    kernel_check: "{{ dict(dnf_kernel_check.stdout_lines | map('split', '=', 1)) }}"
   ansible.builtin.assert:
     that:
-      - dnf_repolist.stdout is search('(?im)^\S*baseos')
-      - dnf_repolist.stdout is search('(?im)^\S*appstream')
+      - kernel_check.ok == 'true'
     quiet: true
     fail_msg: >-
-      No BaseOS/AppStream repository is enabled on {{ inventory_hostname }}, so OS
-      packages (including the kernel) cannot be upgraded.
+      The enabled dnf repositories on {{ inventory_hostname }} cannot provide OS updates:
+      the newest kernel-core they offer ({{ kernel_check.available }}) is older than the
+      newest installed one ({{ kernel_check.installed }}), so the repository the system
+      was updated from is no longer available, or has stopped updating.
       {% if rhsm_identity.rc | default(0) != 0 %}The system is not registered with
       subscription-manager (`subscription-manager identity` failed); ask the server
       administrator to re-register it.{% endif %}
-      Enabled repositories: {{ dnf_repolist.stdout_lines | join('; ') }}
+      Enabled repositories: {{ dnf_repolist.stdout_lines[1:] | join('; ') }}
 
 - name: Upgrade packages (RedHat)
   become: true

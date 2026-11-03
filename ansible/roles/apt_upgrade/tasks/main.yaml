@@ -36,6 +36,49 @@
       APT::Periodic::Update-Package-Lists "1";
       APT::Periodic::Unattended-Upgrade "1";
 
+# Ubuntu's default timers run the upgrade at ~06:00, which leaves any required
+# reboot waiting ~20h for the 02:00 reboot window above. Pull them forward so
+# package lists refresh around midnight, upgrades install around 01:00, and the
+# reboot (if needed) follows at 02:00.
+- name: Create apt timer override directories (Ubuntu)
+  become: true
+  when: ansible_distribution == 'Ubuntu'
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}.timer.d"
+    state: directory
+    mode: '0755'
+  loop:
+    - apt-daily
+    - apt-daily-upgrade
+
+- name: Override apt timers to run overnight (Ubuntu)
+  become: true
+  when: ansible_distribution == 'Ubuntu'
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.timer }}.timer.d/override.conf"
+    mode: '0644'
+    content: |
+      [Timer]
+      OnCalendar=
+      OnCalendar=*-*-* {{ item.time }}
+      RandomizedDelaySec={{ item.delay }}
+  loop:
+    - { timer: apt-daily, time: '00:00:00', delay: '30m' }
+    - { timer: apt-daily-upgrade, time: '01:00:00', delay: '15m' }
+  register: apt_timer_overrides
+
+- name: Enable apt timers (Ubuntu)
+  become: true
+  when: ansible_distribution == 'Ubuntu'
+  ansible.builtin.systemd:
+    name: "{{ item }}.timer"
+    enabled: true
+    state: started
+    daemon_reload: "{{ apt_timer_overrides.changed }}"
+  loop:
+    - apt-daily
+    - apt-daily-upgrade
+
 # dnf treats missing repos as "nothing to upgrade", so a host that has lost its
 # OS repos (e.g., an expired or deleted RHSM registration) upgrades only third-party
 # packages like Docker and reports success; fail loudly instead

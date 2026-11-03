@@ -262,3 +262,51 @@
     weekday: "7"
     month: "*"
     job: cd {{ ansible_user_home_dir }}/datalab; export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; docker compose exec api /opt/.venv/bin/python -m invoke admin.create-backup --strategy-name weekly-snapshots > {{ docker_user_home_dir }}/last_weekly_snapshot.txt 2>&1 || cat {{ docker_user_home_dir }}/last_weekly_snapshot.txt  # noqa: line-length
+
+# Report the deployed versions to Grafana via node_exporter's textfile collector,
+# so every monitored deployment (including forgotten ones) shows what it runs and
+# when it was last deployed. Written last, so only successful deploys are recorded.
+- name: Export deployed datalab version to node_exporter
+  when: prometheus_remote_write_url is defined
+  vars:
+    # Same ownership rules as the borg role, which shares this directory
+    datalab_metrics_become: "{{ docker_become if docker_rootless else true }}"
+    datalab_metrics_become_user: "{{ docker_user if docker_rootless else 'root' }}"
+    datalab_textfile_collector_path: "{{ borg_textfile_collector_path | default('/var/lib/node_exporter/textfile_collector') }}"
+  block:
+    # A deployment repo vendors these playbooks as a submodule; fall back to this
+    # repo itself when the playbook is run from a checkout of it directly
+    # The git module cannot run `git describe`
+    - name: Get playbook version locally  # noqa: command-instead-of-module
+      delegate_to: localhost
+      ansible.builtin.shell:
+        cmd: >-
+          git -C ../src/datalab-ansible-terraform describe --tags --dirty 2>/dev/null
+          || git describe --tags --dirty 2>/dev/null
+          || echo unknown
+        chdir: "{{ playbook_dir }}"
+      register: datalab_ansible_version
+      changed_when: false
+      check_mode: false
+
+    - name: Ensure node_exporter textfile collector directory exists
+      become: "{{ datalab_metrics_become }}"
+      become_user: "{{ datalab_metrics_become_user }}"
+      ansible.builtin.file:
+        path: "{{ datalab_textfile_collector_path }}"
+        state: directory
+        mode: "0755"
+
+    - name: Write deployed version metrics
+      become: "{{ datalab_metrics_become }}"
+      become_user: "{{ datalab_metrics_become_user }}"
+      ansible.builtin.copy:
+        dest: "{{ datalab_textfile_collector_path }}/datalab-deployment.prom"
+        mode: "0644"
+        content: |
+          # HELP datalab_deployment_info Versions of datalab and of its playbooks last deployed by ansible.
+          # TYPE datalab_deployment_info gauge
+          datalab_deployment_info{version={{ git_tag | to_json }},ansible_version={{ datalab_ansible_version.stdout | trim | to_json }}} 1
+          # HELP datalab_last_deploy_timestamp_seconds When datalab was last successfully deployed by ansible.
+          # TYPE datalab_last_deploy_timestamp_seconds gauge
+          datalab_last_deploy_timestamp_seconds {{ now().timestamp() | int }}

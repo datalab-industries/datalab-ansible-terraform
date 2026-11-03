@@ -325,6 +325,12 @@ pinned to Ubuntu 20.04 (focal), which no longer receives updates, so Docker on t
 servers may be stuck on an old version: run `make docker` followed by `make maintenance`
 to switch to the repository for the server's actual Ubuntu release and upgrade Docker.
 Note that upgrading Docker restarts the Docker daemon, and with it all containers.
+On RHEL-family hosts, `make maintenance` fails before upgrading if the enabled dnf
+repositories offer no kernel at least as new as the newest installed one, i.e., the OS
+repositories the server was updated from are gone or have stopped updating (e.g., a RHEL
+server whose subscription-manager registration has lapsed, leaving only stale
+install-media repositories). dnf would otherwise silently upgrade only third-party
+packages such as Docker and leave the OS, including the kernel, unpatched.
 
 The [`Makefile`](Makefile) also contains a number of other useful commands, such as:
 
@@ -477,6 +483,13 @@ and then running the playbook with the `monitoring` tag:
 ```shell
 make monitoring
 ```
+
+When monitoring is configured, each successful `make deploy` also records the
+deployed versions for Grafana via node_exporter's textfile collector:
+`datalab_deployment_info{version, ansible_version}` (the datalab version and the
+version of these playbooks) and `datalab_last_deploy_timestamp_seconds`.
+Deployments that report node metrics but not these have not been redeployed since
+this was added.
 
 #### ChemInventory syncing
 

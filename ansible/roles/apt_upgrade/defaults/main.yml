@@ -1,0 +1,4 @@
+---
+# Directory read by node_exporter's textfile collector (see the monitoring
+# role); must match the one node_exporter is launched with.
+apt_upgrade_textfile_collector_path: "{{ borg_textfile_collector_path | default('/var/lib/node_exporter/textfile_collector') }}"

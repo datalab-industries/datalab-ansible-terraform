@@ -1,3 +1,4 @@
+<!-- This file was edited with the assistance of an AI model and requires human review from the contributor. -->
 # <div align="center">Deploying <i>datalab</i></div>
 
 <div align="center">
@@ -477,6 +478,13 @@ and then running the playbook with the `monitoring` tag:
 ```shell
 make monitoring
 ```
+
+When monitoring is configured, each successful `make deploy` also records the
+deployed versions for Grafana via node_exporter's textfile collector:
+`datalab_deployment_info{version, ansible_version}` (the datalab version and the
+version of these playbooks) and `datalab_last_deploy_timestamp_seconds`.
+Deployments that report node metrics but not these have not been redeployed since
+this was added.
 
 #### ChemInventory syncing
 

@@ -1,5 +1,4 @@
 ---
-# This file was edited with the assistance of an AI model and requires human review from the contributor.
 # The app image is built from the API image via a `service:` build context, which
 # only resolves reliably with Compose's Bake builder (the default since v2.37.0)
 - name: Check Docker Compose version

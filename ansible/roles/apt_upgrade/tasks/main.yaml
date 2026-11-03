@@ -36,6 +36,43 @@
       APT::Periodic::Update-Package-Lists "1";
       APT::Periodic::Unattended-Upgrade "1";
 
+# dnf treats missing repos as "nothing to upgrade", so a host that has lost its
+# OS repos (e.g., an expired or deleted RHSM registration) upgrades only third-party
+# packages like Docker and reports success; fail loudly instead
+- name: List enabled dnf repos (RedHat)
+  become: true
+  when: ansible_os_family == 'RedHat'
+  ansible.builtin.command: dnf -q repolist --enabled
+  register: dnf_repolist
+  changed_when: false
+  check_mode: false
+
+- name: Check subscription-manager registration (RHEL)
+  become: true
+  when: ansible_distribution == 'RedHat'
+  ansible.builtin.command: subscription-manager identity
+  register: rhsm_identity
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# Only the repos are required: a semi-managed host may get them from a mirror
+# without being registered, so registration just adds a hint to the message
+- name: Fail if BaseOS/AppStream repos are not enabled (RedHat)
+  when: ansible_os_family == 'RedHat'
+  ansible.builtin.assert:
+    that:
+      - dnf_repolist.stdout is search('(?im)^\S*baseos')
+      - dnf_repolist.stdout is search('(?im)^\S*appstream')
+    quiet: true
+    fail_msg: >-
+      No BaseOS/AppStream repository is enabled on {{ inventory_hostname }}, so OS
+      packages (including the kernel) cannot be upgraded.
+      {% if rhsm_identity.rc | default(0) != 0 %}The system is not registered with
+      subscription-manager (`subscription-manager identity` failed); ask the server
+      administrator to re-register it.{% endif %}
+      Enabled repositories: {{ dnf_repolist.stdout_lines | join('; ') }}
+
 - name: Upgrade packages (RedHat)
   become: true
   when: ansible_os_family == 'RedHat'

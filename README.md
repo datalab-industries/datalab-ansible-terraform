@@ -1,4 +1,3 @@
-<!-- This file was edited with the assistance of an AI model and requires human review from the contributor. -->
 # <div align="center">Deploying <i>datalab</i></div>
 
 <div align="center">
@@ -326,6 +325,10 @@ pinned to Ubuntu 20.04 (focal), which no longer receives updates, so Docker on t
 servers may be stuck on an old version: run `make docker` followed by `make maintenance`
 to switch to the repository for the server's actual Ubuntu release and upgrade Docker.
 Note that upgrading Docker restarts the Docker daemon, and with it all containers.
+On RHEL-family hosts, `make maintenance` fails before upgrading if no BaseOS/AppStream
+repository is enabled (e.g., because a RHEL server's subscription-manager registration
+has lapsed), as dnf would otherwise silently upgrade only third-party packages such as
+Docker and leave the OS, including the kernel, unpatched.
 
 The [`Makefile`](Makefile) also contains a number of other useful commands, such as:
 

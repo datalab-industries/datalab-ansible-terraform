@@ -1,0 +1,7 @@
+---
+# Write the apt metrics straight away rather than waiting for the hourly timer
+- name: Collect apt metrics
+  become: true
+  ansible.builtin.systemd:
+    name: datalab-apt-metrics.service
+    state: started

@@ -79,6 +79,94 @@
     - apt-daily
     - apt-daily-upgrade
 
+# Export unattended-upgrades health to node_exporter's textfile collector, so
+# failed upgrades and overdue reboots can be alerted on in Grafana.
+- name: Export apt metrics to node_exporter (Ubuntu)
+  when:
+    - ansible_distribution == 'Ubuntu'
+    - prometheus_remote_write_url is defined
+  become: true
+  block:
+    - name: Install python3-apt for the apt metrics script
+      ansible.builtin.apt:
+        name: python3-apt
+        state: present
+
+    - name: Ensure node_exporter textfile collector directory exists
+      # Under rootless docker this lives in docker_user's home and is shared
+      # with the borg role, so docker_user must own it
+      become: true
+      become_user: "{{ docker_user if docker_rootless | default(false) else 'root' }}"
+      ansible.builtin.file:
+        path: "{{ apt_upgrade_textfile_collector_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy apt metrics script
+      ansible.builtin.copy:
+        src: datalab-apt-metrics.py
+        dest: /usr/local/sbin/datalab-apt-metrics
+        mode: '0755'
+      notify: Collect apt metrics
+
+    - name: Install apt metrics service and timer
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ item.name }}"
+        mode: '0644'
+        content: "{{ item.content }}"
+      loop:
+        - name: datalab-apt-metrics.service
+          content: |
+            [Unit]
+            Description=Export apt/unattended-upgrades metrics for node_exporter
+            After=apt-daily.service apt-daily-upgrade.service
+
+            [Service]
+            Type=oneshot
+            ExecStart=/usr/local/sbin/datalab-apt-metrics {{ apt_upgrade_textfile_collector_path }}
+            Nice=10
+            IOSchedulingClass=idle
+        - name: datalab-apt-metrics.timer
+          content: |
+            [Unit]
+            Description=Hourly apt/unattended-upgrades metrics for node_exporter
+
+            [Timer]
+            OnBootSec=2min
+            OnCalendar=hourly
+            Persistent=true
+
+            [Install]
+            WantedBy=timers.target
+      loop_control:
+        label: "{{ item.name }}"
+      register: apt_metrics_units
+      notify: Collect apt metrics
+
+    - name: Create apt-daily-upgrade service drop-in directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/apt-daily-upgrade.service.d
+        state: directory
+        mode: '0755'
+
+    # The metrics service is ordered After= apt-daily-upgrade, so this runs it
+    # once the upgrade (and any failure) has finished
+    - name: Refresh apt metrics right after each unattended-upgrade run
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/apt-daily-upgrade.service.d/datalab-apt-metrics.conf
+        mode: '0644'
+        content: |
+          [Unit]
+          Wants=datalab-apt-metrics.service
+      register: apt_metrics_dropin
+
+    - name: Enable apt metrics timer
+      ansible.builtin.systemd:
+        name: datalab-apt-metrics.timer
+        enabled: true
+        state: started
+        daemon_reload: "{{ apt_metrics_units.changed or apt_metrics_dropin.changed }}"
+
 # dnf treats missing repos as "nothing to upgrade", so a host that has lost its
 # OS repos (e.g., an expired or deleted RHSM registration) upgrades only third-party
 # packages like Docker and reports success; fail loudly instead

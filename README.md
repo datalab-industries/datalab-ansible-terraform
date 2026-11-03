@@ -491,6 +491,42 @@ version of these playbooks) and `datalab_last_deploy_timestamp_seconds`.
 Deployments that report node metrics but not these have not been redeployed since
 this was added.
 
+##### Automatic upgrade monitoring
+
+On Ubuntu, the `maintenance` tasks (`apt_upgrade` role) schedule unattended
+upgrades for around 01:00, with any required reboot at 02:00. When monitoring
+is configured, they also install an hourly `datalab-apt-metrics.timer` that
+exports the following metrics via node_exporter's textfile collector:
+
+| Metric | Meaning |
+| --- | --- |
+| `apt_unattended_upgrade_last_success_timestamp_seconds` | Last time `unattended-upgrade` exited successfully (it also succeeds daily when there is nothing to do) |
+| `apt_update_last_success_timestamp_seconds` | Last successful periodic `apt-get update` |
+| `apt_upgrades_pending{type="security"\|"other"}` | Installed packages with an available upgrade |
+| `apt_upgrades_held`, `apt_unattended_upgrade_kept_back` | Packages held with `apt-mark hold`, or kept back on the last run (e.g., by a conffile prompt) |
+| `apt_dpkg_broken_packages`, `apt_cache_broken_dependencies` | Packages left half-installed by dpkg, or with unmet dependencies |
+| `node_reboot_required`, `node_reboot_required_since_timestamp_seconds` | Whether (and since when) `/var/run/reboot-required` exists |
+| `apt_metrics_collector_success` | Whether the metrics script itself ran cleanly |
+
+Note that `apt-daily-upgrade.service` reports success even when the upgrade
+fails, so alert on the age of the success timestamp rather than on systemd unit state.
+Suggested Grafana alert rules:
+
+```promql
+# Upgrades have not succeeded for over a day (one missed nightly run)
+time() - apt_unattended_upgrade_last_success_timestamp_seconds > 36 * 3600
+# Package lists have not refreshed
+time() - apt_update_last_success_timestamp_seconds > 36 * 3600
+# dpkg was interrupted or a package is broken; needs `dpkg --configure -a` by hand
+apt_dpkg_broken_packages > 0 or apt_cache_broken_dependencies > 0
+# Security updates are not being applied (pair with a `for: 2d` pending period)
+apt_upgrades_pending{type="security"} > 0
+# The 02:00 automatic reboot did not happen
+node_reboot_required == 1 and time() - node_reboot_required_since_timestamp_seconds > 12 * 3600
+# The exporter has stopped writing metrics
+apt_metrics_collector_success == 0 or time() - apt_metrics_last_run_timestamp_seconds > 3 * 3600
+```
+
 #### ChemInventory syncing
 
 Items from a [ChemInventory](https://www.cheminventory.net/) inventory can be

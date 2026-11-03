@@ -1,4 +1,3 @@
-# This file was edited with the assistance of an AI model and requires human review from the contributor.
 # Example dlmeta config: copy to ~/.config/dlmeta/config.toml (or point $DLMETA_CONFIG at it).
 
 # Where to find deployments: each entry is either a deployment repo, or a folder of them.
@@ -8,7 +7,9 @@ deployments = [
     # "~/work/some-other-deployment",
 ]
 
-# Where to keep the ledger, probe results, URL cache and logs (default: ~/.local/state/dlmeta)
+# Where to keep the ledger, probe results, URL cache and logs (default: ~/.local/state/dlmeta).
+# The callback only reads $DEPLOYMENT_LEDGER_DIR, so if you change this, also set that to <state_dir>/runs
+# for runs not started by dlmeta (see README.md).
 # state_dir = "~/.local/state/dlmeta"
 
 # Deployments to hide unless asked for: name = reason

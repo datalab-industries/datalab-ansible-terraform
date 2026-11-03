@@ -1,18 +1,21 @@
 """Ansible callback that records each run of a datalab deployment playbook.
 
 Every run of `<repo>/ansible/playbook.yml` appends a `start` record to
-`runs/<repo>.jsonl` in this meta repo (git state of the deployment repo, datalab
-and upstream ansible versions, tags), and a `finish` record once the play recap
-is reached (status plus a few details learned from the hosts). A run with a
-`start` but no `finish` record was interrupted and is treated as failed.
+`<ledger dir>/<repo>.jsonl` (git state of the deployment repo, datalab and upstream
+ansible versions, tags), and a `finish` record once the play recap is reached (status,
+per-host stats and the hosts' api_url/app_url). A run with a `start` but no `finish`
+record was interrupted and is treated as failed.
 
-Enable via ~/.ansible.cfg:
+dlmeta enables this for every command it runs. To also record runs started by hand
+(e.g., `make deploy` in a deployment repo), enable it in ~/.ansible.cfg:
 
     [defaults]
-    callback_plugins = ~/repos/datalab/deployments-meta/callback_plugins
+    callback_plugins = /path/to/datalab-ansible-terraform/tools/callback_plugins
     callbacks_enabled = deployment_ledger
 
-Set DEPLOYMENT_LEDGER_DIR to write records elsewhere. Recording never fails a run.
+Records go to $DEPLOYMENT_LEDGER_DIR, by default $XDG_STATE_HOME/dlmeta/runs
+(~/.local/state/dlmeta/runs), which is where dlmeta reads them from unless its
+`state_dir` is changed. Recording never fails a run.
 """
 
 from __future__ import annotations
@@ -38,8 +41,6 @@ DOCUMENTATION = """
       - enable in configuration
 """
 
-# Task names whose output is worth keeping, mapped to the key it is stored under
-CAPTURED_TASKS = {"Check Docker Compose version": "compose_version"}
 # Inventory variables worth keeping (e.g., so the API can be probed later)
 CAPTURED_VARS = ("api_url", "app_url")
 
@@ -98,8 +99,9 @@ class CallbackModule(CallbackBase):
             return
 
         ledger_dir = Path(
-            os.environ.get("DEPLOYMENT_LEDGER_DIR") or Path(__file__).resolve().parent.parent / "runs"
-        )
+            os.environ.get("DEPLOYMENT_LEDGER_DIR")
+            or Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state") / "dlmeta" / "runs"
+        ).expanduser()
         self._ledger = ledger_dir / f"{repo.name}.jsonl"
         self._run_id = uuid.uuid4().hex[:12]
 
@@ -137,21 +139,6 @@ class CallbackModule(CallbackBase):
                         info[key] = value
         except Exception as exc:
             self._display.warning(f"deployment_ledger: could not read host vars: {exc}")
-
-    def v2_runner_on_ok(self, result):
-        if self._ledger is None:
-            return
-        try:
-            info = self._hosts.setdefault(result.host.get_name(), {})
-            res = result.result
-            facts = res.get("ansible_facts") or {}
-            if "ansible_distribution" in facts:
-                info["os"] = f"{facts['ansible_distribution']} {facts.get('ansible_distribution_version', '')}".strip()
-            key = CAPTURED_TASKS.get(result.task.get_name().split(" : ")[-1])
-            if key and res.get("stdout"):
-                info[key] = res["stdout"].strip()
-        except Exception:
-            pass
 
     def v2_playbook_on_stats(self, stats):
         if self._ledger is None:

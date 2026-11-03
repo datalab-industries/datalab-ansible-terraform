@@ -3,7 +3,6 @@
 # requires-python = ">=3.11"
 # dependencies = ["textual>=8", "packaging"]
 # ///
-# This file was edited with the assistance of an AI model and requires human review from the contributor.
 """dlmeta — overview and updating of all datalab deployment repos.
 
   dlmeta              interactive TUI (same as `dlmeta tui`)
@@ -14,7 +13,6 @@
   dlmeta sync         update their ansible-terraform submodules and run the interactive sync script in each
   dlmeta discover     read each repo's api_url from its encrypted inventory (needs rbw)
   dlmeta probe        query each deployment's public /info endpoint for its live version
-  dlmeta dashboard    write dashboard.html (runs `probe` first unless --no-probe)
 
 Configuration is read from $DLMETA_CONFIG (default ~/.config/dlmeta/config.toml, see
 dlmeta.example.toml). Deployments are the repos with an ansible/playbook.yml listed under
@@ -36,7 +34,6 @@ import concurrent.futures
 import datetime
 import fnmatch
 import functools
-import html
 import json
 import os
 import re
@@ -228,14 +225,12 @@ def local_state(repo: Path) -> dict:
         rules_differ = any(not line.startswith(f"Only in {repo / 'ansible'}") for line in diff.splitlines())
     return {
         "deployment": repo.name,
-        "path": str(repo),
         "local_version": _git(submodule, "describe", "--tags", "--match", "v*"),
         "local_commit": (_git(submodule, "rev-parse", "HEAD") or "")[:8],
         "ansible_version": _git(rules, "describe", "--tags", "--dirty") if rules.is_dir() else None,
         "ansible_local_changes": rules_differ,
         "uncommitted": _porcelain_paths(status),
         "vault_pass": (repo / ".vault-pass.sh").is_file(),
-        "makefile": (repo / "Makefile").is_file(),
         "inactive": inactive().get(repo.name),
     }
 
@@ -277,20 +272,15 @@ def load_runs() -> dict[str, list[dict]]:
 def ledger_summary(runs: list[dict]) -> dict:
     last = runs[-1] if runs else {}
     successful = [r for r in runs if r["status"] == "success"]
-    last_ok = successful[-1] if successful else {}
     deploys = [r for r in successful if {"deploy", "all", "setup"} & set(r.get("tags") or ["all"])]
     maintenance = [r for r in successful if MAINTENANCE_TAGS & set(r.get("tags") or ["all"])]
     return {
         "last_run": last.get("started"),
         "last_run_status": last.get("status"),
         "last_run_tags": ",".join(last.get("tags") or []),
-        "last_success": last_ok.get("started"),
         "deployed_version": deploys[-1].get("datalab_version") if deploys else None,
         "deployed_commit": deploys[-1].get("commit") if deploys else None,
-        "last_deploy": deploys[-1]["started"] if deploys else None,
         "last_maintenance": maintenance[-1]["started"] if maintenance else None,
-        "commit": (last_ok.get("commit") or "")[:8],
-        "dirty_files": last_ok.get("dirty_files") or [],
         "hosts": {h: i for r in successful for h, i in (r.get("hosts") or {}).items()},
     }
 
@@ -493,7 +483,7 @@ def _discover_summary(result: dict) -> str:
 
 
 def cmd_discover(_args) -> None:
-    subprocess.run(["rbw", "unlocked"], capture_output=True).returncode == 0 or subprocess.run(["rbw", "unlock"])
+    ensure_rbw()
     discover_all(deployment_repos(), lambda name, r: print(f"{name}: {_discover_summary(r)}", flush=True))
 
 
@@ -530,11 +520,8 @@ def _live_text(state: dict, target: str | None, tracks: dict):
 def cmd_probe(_args) -> None:
     runs = load_runs()
     targets = {r.name: api_url_for(r.name, ledger_summary(runs.get(r.name, []))) for r in deployment_repos()}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
-        futures = {pool.submit(probe_one, n, u): n for n, u in targets.items() if u}
-        for future in concurrent.futures.as_completed(futures):
-            r = future.result()
-            print(f"{r['deployment']}: {r.get('server_version') or 'unreachable (' + r['error'] + ')'}")
+    probe_many({n: u for n, u in targets.items() if u}, lambda r: print(
+        f"{r['deployment']}: {r.get('server_version') or 'unreachable (' + r['error'] + ')'}"))
     for name, url in targets.items():
         if not url:
             print(f"{name}: no api_url known (run `dlmeta discover`)")
@@ -555,7 +542,7 @@ def _version_text(version: str | None, target: str | None, tracks: dict | None =
 
     if not version:
         return Text("–", style="dim")
-    style, reason = version_verdict(version, target, tracks or {}, kind)
+    style, _ = version_verdict(version, target, tracks or {}, kind)
     text = Text(_short(version), style=style)
     if style == "bold red":
         text = Text("⚠ ", style=style) + text
@@ -663,40 +650,6 @@ def _ago(ts: str | None) -> str:
         return f"{delta.days}d ago"
     hours = delta.seconds // 3600
     return f"{hours}h ago" if hours else f"{delta.seconds // 60}m ago"
-
-
-def cmd_dashboard(args) -> None:
-    if not args.no_probe:
-        cmd_probe(args)
-    e = html.escape
-    runs, probes = load_runs(), latest_probes()
-    rows = [full_state(r, runs, probes) for r in deployment_repos()]
-    body = "\n".join(
-        f"<tr><td><strong>{e(r['deployment'])}</strong></td><td><code>{e(r['local_version'] or '-')}</code></td>"
-        f"<td><code>{e(r['deployed_version'] or '-')}</code><div class=muted>{_ago(r['last_deploy'])}</div></td>"
-        f"<td>{e(r['live_version'] or ('unreachable' if r['probe_error'] else 'not probed'))}</td>"
-        f"<td>{_ago(r['last_maintenance'])}</td><td>{len(r['uncommitted']) or ''}</td></tr>"
-        for r in rows
-    )
-    out = STATE / "dashboard.html"
-    out.write_text(TEMPLATE.replace("{{rows}}", body).replace("{{generated}}", datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
-    print(f"wrote {out}")
-
-
-TEMPLATE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>datalab deployments</title>
-<style>
-:root { --bg:#fbfbfa; --fg:#1d1d1b; --muted:#6b6b66; --line:#e4e3de; --code:#f1f0ec; }
-@media (prefers-color-scheme: dark) { :root { --bg:#161716; --fg:#e8e6e1; --muted:#9a9891; --line:#2c2d2b; --code:#232422; } }
-body { margin:0; padding:32px 16px; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, sans-serif; }
-main { max-width:1100px; margin:0 auto; } .wrap { overflow-x:auto; } table { width:100%; border-collapse:collapse; }
-th, td { text-align:left; padding:8px 12px; border-bottom:1px solid var(--line); white-space:nowrap; }
-th { color:var(--muted); font-size:12px; text-transform:uppercase; } .muted { color:var(--muted); font-size:12px; }
-code { background:var(--code); padding:1px 4px; border-radius:3px; }
-</style></head><body><main><h1>datalab deployments</h1><p class="muted">generated {{generated}}</p>
-<div class="wrap"><table><thead><tr><th>Deployment</th><th>Local</th><th>Deployed</th><th>Live</th><th>Maintenance</th><th>Uncommitted</th></tr></thead>
-<tbody>{{rows}}</tbody></table></div></main></body></html>
-"""
 
 
 # --- Batch commands ----------------------------------------------------------------------
@@ -1619,14 +1572,13 @@ def run_tui(target: str | None) -> None:
 
         @work(thread=True, group="probe")
         def _probe(self, names: list[str]) -> None:
-            targets = {n: self.states.get(n, {}).get("api_url") for n in names}
-            with concurrent.futures.ThreadPoolExecutor(max_workers=16) as pool:
-                futures = {pool.submit(probe_one, n, u): n for n, u in targets.items() if u}
-                for future in concurrent.futures.as_completed(futures):
-                    r = future.result()
-                    self.call_from_thread(self.log_msg, f"{r['deployment']}: " + (
-                        f"live {r['server_version']}" if r["ok"] else f"[dim]unreachable ({r['error']})[/]"))
-                    self.call_from_thread(self.refresh_one, r["deployment"])
+            def report(r: dict) -> None:
+                self.call_from_thread(self.log_msg, f"{r['deployment']}: " + (
+                    f"live {r['server_version']}" if r["ok"] else f"[dim]unreachable ({r['error']})[/]"))
+                self.call_from_thread(self.refresh_one, r["deployment"])
+
+            targets = {n: u for n in names if (u := self.states.get(n, {}).get("api_url"))}
+            probe_many(targets, report)
 
         def action_discover(self) -> None:
             if self.ensure_rbw():
@@ -1682,9 +1634,6 @@ def main() -> None:
     run.set_defaults(func=cmd_run)
     sub.add_parser("discover").set_defaults(func=cmd_discover)
     sub.add_parser("probe").set_defaults(func=cmd_probe)
-    dash = sub.add_parser("dashboard")
-    dash.add_argument("--no-probe", action="store_true", help="use the last recorded probe results")
-    dash.set_defaults(func=cmd_dashboard)
     args = parser.parse_args()
     RUNS.mkdir(parents=True, exist_ok=True)
     if args.cmd in (None, "tui"):

@@ -358,6 +358,18 @@ dlmeta status  # table of local, deployed and live versions, last runs and maint
 dlmeta         # the same as an interactive TUI, which can also bump and deploy
 ```
 
+The "Last run", "Deployed" and "Maintenance" columns come from a ledger of playbook runs, recorded by the Ansible callback in [`tools/callback_plugins`](tools/callback_plugins/deployment_ledger.py) to `~/.local/state/dlmeta/runs`.
+`dlmeta` enables it for everything it runs; to also record runs that you start yourself (e.g., `make deploy` in a deployment), enable it in `~/.ansible.cfg`:
+
+```ini
+[defaults]
+callback_plugins = /path/to/datalab-ansible-terraform/tools/callback_plugins
+callbacks_enabled = deployment_ledger
+```
+
+Runs that are not recorded will make `dlmeta` think a deployment is older than it is (and `dlmeta deploy` may redeploy it).
+If you set `state_dir` in the config, also export `DEPLOYMENT_LEDGER_DIR=<state_dir>/runs` so that the callback writes there.
+
 To run a command in several deployments, use `dlmeta run`, which lists what it will do and asks for confirmation first:
 
 ```shell

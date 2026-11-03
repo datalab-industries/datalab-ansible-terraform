@@ -346,6 +346,79 @@ make list
 
 to list all of the available Ansible tags that can be run individually.
 
+#### Managing multiple deployments
+
+If you manage several deployments (each its own fork of this repository), [`tools/dlmeta`](tools/dlmeta) gives an overview of them and can run commands across them.
+It only needs [uv](https://astral.sh/uv), and lives in `tools/` as it is not part of a deployment, so it is not copied by `sync-ansible-upstream.sh`.
+Link it somewhere on your `PATH`, then tell it where your deployments are by copying [`tools/dlmeta.example.toml`](tools/dlmeta.example.toml) to `~/.config/dlmeta/config.toml`:
+
+```shell
+ln -s "$PWD/tools/dlmeta" ~/.local/bin/dlmeta
+dlmeta status  # table of local, deployed and live versions, last runs and maintenance
+dlmeta         # the same as an interactive TUI, which can also bump and deploy
+```
+
+The "Last run", "Deployed" and "Maintenance" columns come from a ledger of playbook runs, recorded by the Ansible callback in [`tools/callback_plugins`](tools/callback_plugins/deployment_ledger.py) to `~/.local/state/dlmeta/runs`.
+`dlmeta` enables it for everything it runs; to also record runs that you start yourself (e.g., `make deploy` in a deployment), enable it in `~/.ansible.cfg`:
+
+```ini
+[defaults]
+callback_plugins = /path/to/datalab-ansible-terraform/tools/callback_plugins
+callbacks_enabled = deployment_ledger
+```
+
+Runs that are not recorded will make `dlmeta` think a deployment is older than it is (and `dlmeta deploy` may redeploy it).
+If you set `state_dir` in the config, also export `DEPLOYMENT_LEDGER_DIR=<state_dir>/runs` so that the callback writes there.
+
+To run a command in several deployments, use `dlmeta run`, which lists what it will do and asks for confirmation first:
+
+```shell
+dlmeta run -- make maintenance
+dlmeta run --only 'demo-*' --exclude demo-old -- make deploy
+```
+
+Up to 8 deployments run at a time, with a live summary and a tab streaming each deployment's output.
+A failure does not stop the others, so to roll out a risky change gradually, select a few deployments first with `--only`.
+Deployments where the ledger shows that `make maintenance` (or a whole-playbook run) succeeded in the last day are skipped.
+Use `--rerun-after` to change that window (e.g., `12h`, `1w`, or `0` to always run), or to apply one to other targets, e.g., `dlmeta run --rerun-after 1h -- make deploy`.
+Press `x` to start no more deployments, or `q` twice to interrupt those running. Closing the terminal may also kill them, so use `tmux` or similar for long runs that you may need to leave.
+Anything that needs a prompt (e.g., a vault password when `rbw` has no entry) fails rather than waits.
+Logs for each run are kept in `~/.local/state/dlmeta/logs`.
+
+To update *datalab* and deploy in one step, use `dlmeta deploy`, which first shows each deployment's upgrade and asks for confirmation:
+
+```shell
+dlmeta deploy --only 'demo-*'              # the newest release on each deployment's own release line
+dlmeta deploy --to v0.7.12                 # a specific tag
+dlmeta deploy --to main --only demo-staging  # upstream's branch, or a specific commit
+dlmeta deploy --nightly --only demo-staging  # the latest commit on upstream's main branch
+```
+
+Use `--only` with `--nightly` unless every deployment should be on the development version, as it will move deployments on a release line onto `main` where it can (the plan warns about this).
+Deployments already on the latest commit are skipped, so it is safe to repeat.
+
+The `src/datalab` submodule is only checked out, never staged or committed, so review and commit the result yourself.
+Deployments that cannot be updated are not deployed and are flagged in red before and after the run, with a non-zero exit code: for example, if the fetch fails, `src/datalab` has uncommitted changes, the target is listed under `[flagged]` in the config, the update would lose commits that are not pushed anywhere or, with the default target, the checkout has any commits that the newest release lacks.
+Naming a target with `--to` allows leaving behind commits that are pushed, with a warning, so check what those commits are first.
+Unlike `dlmeta run`, a failed deploy stops any more from starting, though those already running will finish; there is no automatic rollback.
+
+To update the playbooks themselves, use `dlmeta sync`, which updates each deployment's `src/datalab-ansible-terraform` submodule and then runs upstream's copy of `sync-ansible-upstream.sh` in it:
+
+```shell
+dlmeta sync -n                 # show the plan, with a warning for any datalab version outside the new release's supported versions
+dlmeta sync --only 'demo-*'    # the newest release
+dlmeta sync --to v0.9.0        # a specific tag, branch or commit (or --nightly for the latest commit on main)
+dlmeta deploy                  # then deploy, which also picks up deployments whose ansible/ has changed since their last deploy
+```
+
+The script asks which changes to commit, so deployments are done one at a time and it needs a terminal.
+It commits locally, but nothing is pushed or deployed.
+Deployments are not synced, and are flagged in red, if the repo has staged changes, uncommitted changes in the files that the script overwrites (which includes anything untracked under `ansible/`, as the script would add it), or is not on a branch, as well as for the reasons given above for `dlmeta deploy`.
+
+The script only commits `ansible/` and the submodule, so `Makefile`, `README.md`, `requirements.*`, `sync-ansible-upstream.sh` and `.vault-pass.sh` may be left uncommitted, as are any hunks that you decline: the script asks about those a second time, and the upstream version then stays in your working tree, where it would be deployed.
+The submodule update is committed even if you decline every hunk.
+`dlmeta sync` lists what was left uncommitted so that you can commit or `git restore` it, and will not sync that deployment again until you have.
+
 #### Installing *datalab* plugins
 
 *datalab* supports first-party and third-party plugins (custom data blocks, etc.) which extend the API server.

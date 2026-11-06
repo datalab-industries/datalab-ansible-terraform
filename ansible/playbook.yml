@@ -3,6 +3,13 @@
   hosts: all
   gather_facts: false
   tags: [setup, bootstrap]
+  pre_tasks:
+    # Every play starts by loading the defaults from the common role. Facts are
+    # not gathered yet, so only the settings these plays use are validated here
+    - name: Load defaults and validate bootstrap settings
+      ansible.builtin.import_role:
+        name: common
+        tasks_from: bootstrap
   roles:
     - role: bootstrap_probe
 
@@ -20,11 +27,14 @@
     ansible_user: root
     ansible_ssh_user: root
   pre_tasks:
+    - name: Load defaults and validate bootstrap settings
+      ansible.builtin.import_role:
+        name: common
+        tasks_from: bootstrap
+
     - name: Skip bootstrap when the system is managed externally
       ansible.builtin.meta: end_host
-      # Defaulted inline: this play does not include the docker role, whose
-      # defaults define manage_system
-      when: not (manage_system | default(true))
+      when: not manage_system
 
     - name: Skip bootstrap when the target user can already log in
       ansible.builtin.meta: end_host
@@ -48,7 +58,7 @@
     api_host: "{{ api_url | regex_replace('^https?://', '') | regex_replace('/.*$', '') }}"
     api_root_path: "{{ api_url | regex_replace('^https?://[^/]+', '') | regex_replace('^[^/]+', '') | regex_replace('/+$', '') }}"
   # Point all docker modules and CLI calls at the configured daemon; see
-  # roles/docker/defaults/main.yml
+  # roles/common/defaults/main.yml
   environment:
     DOCKER_HOST: "{{ docker_host }}"
   pre_tasks:
@@ -69,6 +79,9 @@
         docker_user_home_dir: "{{ ansible_facts.getent_passwd[docker_user][4] }}"
       tags: [always]
   roles:
+    # Defaults and validation of every setting, before anything changes the host
+    - role: common
+      tags: [always]
     - role: preflight
       name: Check if the system is ready for the playbook
       tags: [setup]

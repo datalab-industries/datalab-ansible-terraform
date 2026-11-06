@@ -9,7 +9,7 @@ deployments = [
 
 # Where to keep the ledger, probe results, URL cache and logs (default: ~/.local/state/dlmeta).
 # The callback only reads $DEPLOYMENT_LEDGER_DIR, so if you change this, also set that to <state_dir>/runs
-# for runs not started by dlmeta (see README.md).
+# for runs not started by dlmeta (see docs/dlmeta.md).
 # state_dir = "~/.local/state/dlmeta"
 
 # Deployments to hide unless asked for: name = reason

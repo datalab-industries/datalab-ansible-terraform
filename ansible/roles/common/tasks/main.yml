@@ -1,0 +1,4 @@
+---
+# This role only provides the defaults for every setting and validates them
+# against meta/argument_specs.yml; it has no tasks of its own.
+[]

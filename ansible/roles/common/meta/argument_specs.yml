@@ -1,0 +1,492 @@
+---
+argument_specs:
+  main:
+    short_description: Every setting the playbook accepts
+    description:
+      - Declares and validates all of the playbook's settings. Their defaults are in defaults/main.yml.
+      - Runs first in the main play, after facts are gathered, so every setting is checked before any
+        task changes the host, whichever tags are run.
+    options:
+      # Core deployment
+      ansible_user:
+        type: str
+        required: true
+        description:
+          - The user that ansible connects as, and that owns the deployment files on the host.
+          - It is created by the bootstrap play if it does not already exist.
+      app_url:
+        type: str
+        required: true
+        description:
+          - The URL where the datalab web app is served, e.g. example.org.
+          - Also used as the instance label in the monitoring metrics.
+      api_url:
+        type: str
+        required: true
+        description:
+          - The URL where the datalab API is served.
+          - Either its own subdomain (e.g. api.example.org), or the app's host with a root path (e.g.
+            example.org/api), in which case nginx serves it as a sublocation and ROOT_PATH must be set
+            in the datalab config.
+      ansible_user_home_dir:
+        type: str
+        required: false
+        description:
+          - Directory that holds the datalab repository, nginx files and other deployment files.
+          - Defaults to the home directory of ansible_user. Override it for accounts whose home is elsewhere,
+            such as a service account.
+      ansible_become_password:
+        type: str
+        required: false
+        description: Password of the created user, where sudo requires one.
+      mount_data_disk:
+        type: str
+        required: false
+        description:
+          - Device to mount at /data, e.g. /dev/sdb.
+          - Any fstab source is accepted, so a UUID (e.g. UUID=aaaa-bbbb-cccc) can be used where device
+            names are not stable.
+          - Leave unset to use the root filesystem.
+      data_disk_type:
+        type: str
+        required: false
+        description: Filesystem type of the data disk. Only used when mount_data_disk is set.
+
+      # Docker and externally managed hosts
+      manage_system:
+        type: bool
+        required: false
+        description:
+          - Whether the playbook manages the host system, i.e. bootstrapping the ansible user as root,
+            mounting the data disk, installing system packages and Docker, configuring fail2ban and sshd,
+            and keeping packages up to date.
+          - Set to false on hosts managed externally, where Docker and the Python Docker SDK must already
+            be installed.
+      manage_nginx:
+        type: bool
+        required: false
+        description:
+          - Whether the playbook manages nginx and its TLS certificates.
+          - Set to false when a reverse proxy is managed externally, in which case the app and API containers
+            still publish their ports for it to proxy to, and no certificate renewal is scheduled.
+      docker_rootless:
+        type: bool
+        required: false
+        description:
+          - Whether containers run under a rootless Docker daemon rather than the system one.
+          - Rootless daemons must already be installed and running; the playbook does not install or configure
+            them.
+      docker_user:
+        type: str
+        required: false
+        description:
+          - The user that runs Docker commands.
+          - For rootful Docker this is ansible_user, who is added to the docker group. For rootless Docker
+            it is the user that owns the daemon, which ansible becomes for any Docker task. Defaults to
+            ansible_user.
+      docker_host:
+        type: str
+        required: false
+        description:
+          - The daemon socket to connect to.
+          - Defaults to the system socket, or to the rootless socket of docker_user when docker_rootless
+            is true.
+      docker_shared_group:
+        type: str
+        required: false
+        description:
+          - A group shared by ansible_user and docker_user.
+          - When set, and the two users differ, files synced by ansible (e.g. build contexts and env files)
+            are made readable by this group.
+      docker_cron_path:
+        type: str
+        required: false
+        description:
+          - PATH used by cron jobs that call docker.
+          - Cron only searches /usr/bin and /bin, but rootless installs often put the CLI elsewhere.
+
+      # Backups
+      borg_repository:
+        type: str
+        required: false
+        description: Path to the borg repository, either local or remote (e.g. user@host:repo).
+      borg_encryption_passphrase:
+        type: str
+        required: false
+        description:
+          - Passphrase used to encrypt the repository.
+          - Store a copy outside this repository. Without it the backups cannot be restored.
+      borg_remote_path:
+        type: str
+        required: false
+        description: The borg command to run on the remote repository, e.g. borg1 or borg2.
+      borg_source_directories:
+        type: list
+        elements: str
+        required: false
+        description:
+          - Directories to back up from disk.
+          - The database is dumped separately by the borgmatic database hook, and the rest of /data is
+            either excluded, reproducible or already covered.
+      borg_exclude_patterns:
+        type: list
+        elements: str
+        required: false
+        description: Paths to exclude from the backup.
+      borg_exclude_from:
+        type: list
+        elements: str
+        required: false
+        description: Files containing additional exclude patterns.
+      borg_retention_policy:
+        type: dict
+        required: false
+        description: Number of archives to keep, as keep_daily, keep_weekly, keep_monthly and keep_yearly.
+      borg_one_file_system:
+        type: bool
+        required: false
+        description: Whether to stay on one filesystem, i.e. not descend into other mount points.
+      borg_remote_rate_limit:
+        type: int
+        required: false
+        description: Upload rate limit in kiB/s, or 0 for no limit.
+      borg_ssh_command:
+        type: str
+        required: false
+        description: SSH command used to reach the remote repository.
+      borg_ssh_key_type:
+        type: str
+        required: false
+        description: Type of the SSH key used for the remote repository.
+      borg_ssh_key_name:
+        type: str
+        required: false
+        description: Filename of the SSH key, which must exist in the vaults/borg/.ssh directory.
+      borg_encryption_passcommand:
+        type: raw
+        required: false
+        description: Command that prints the passphrase, used instead of borg_encryption_passphrase.
+      borg_lock_wait_time:
+        type: int
+        required: false
+        description: Seconds to wait for the repository lock.
+      borg_version:
+        type: raw
+        required: false
+        description: Version of borg to install, or false for the packaged version.
+      borg_install_method:
+        type: str
+        required: false
+        choices:
+          - package
+          - pip
+        description: How borg is installed on the host.
+      borg_textfile_collector_path:
+        type: str
+        required: false
+        description:
+          - Host directory read by the node_exporter textfile collector.
+          - The borgmatic container writes backup status metrics here, which the monitoring role exports.
+      borg_cache_dir:
+        type: str
+        required: false
+        description: Host directory holding the persistent borg cache.
+      borg_config_dir:
+        type: str
+        required: false
+        description: Host directory holding the borgmatic configuration.
+      borgmatic_timer:
+        type: str
+        required: false
+        description: How the backup is scheduled.
+      borgmatic_timer_cron_name:
+        type: str
+        required: false
+        description: Name of the cron job that runs the backup.
+      borgmatic_timer_hour:
+        type: raw
+        required: false
+        description: Hour the backup runs. Defaults to a random early hour, seeded by the host name.
+      borgmatic_timer_minute:
+        type: raw
+        required: false
+        description: Minute the backup runs. Defaults to a random minute, seeded by the host name.
+      borgmatic_hooks:
+        type: dict
+        required: false
+        description: borgmatic hooks, including the MongoDB dump and the metrics written after each run.
+      borgmatic_checks:
+        type: list
+        elements: dict
+        required: false
+        description: Consistency checks borgmatic runs, and how often.
+      borgmatic_check_last:
+        type: int
+        required: false
+        description: Number of recent archives to check.
+      borgmatic_store_atime:
+        type: bool
+        required: false
+        description: Whether to store file access times.
+      borgmatic_store_ctime:
+        type: bool
+        required: false
+        description: Whether to store file change times.
+      borgmatic_relocated_repo_access_is_ok:
+        type: bool
+        required: false
+        description: Whether to accept a repository that has moved, without prompting.
+      borgmatic_version:
+        type: str
+        required: false
+        description: Version constraint for borgmatic.
+      borg_venv_path:
+        type: str
+        required: false
+        description: Path of the borgmatic virtualenv, when installed on the host.
+      borg_require_epel:
+        type: bool
+        required: false
+        description: Whether EPEL is needed to install borg, which is true on RHEL-like distributions.
+
+      # Monitoring
+      prometheus_remote_write_url:
+        type: str
+        required: false
+        description: Remote write endpoint of the Prometheus server that collects the metrics.
+      prometheus_user:
+        type: str
+        required: false
+        description: Username for the remote Prometheus server.
+      prometheus_password:
+        type: str
+        required: false
+        description: Password for the remote Prometheus server.
+      datalab_prefix:
+        type: str
+        required: false
+        description:
+          - Label that identifies this instance in the collected metrics.
+          - Defaults to app_url.
+      monitoring_cadvisor:
+        type: bool
+        required: false
+        description:
+          - Whether to run cAdvisor for per-container metrics.
+          - It uses noticeably more CPU than the other exporters. When false, any existing cAdvisor container
+            is removed.
+      monitoring_node_exporter_port:
+        type: int
+        required: false
+        description: Port for node_exporter. Change it if the host already runs its own exporter.
+      monitoring_prometheus_port:
+        type: int
+        required: false
+        description: Port for Prometheus. Change it if the host already runs its own.
+      monitoring_cadvisor_port:
+        type: int
+        required: false
+        description: Port for cAdvisor. Change it if the host already runs its own.
+
+      # Emails for failed cron jobs
+      cron_mailto:
+        type: str
+        required: false
+        description:
+          - Where to send the output of failed cron jobs.
+          - Several addresses can be given, separated by commas, e.g. a team address and an alerting service
+            that accepts email.
+      cron_mail_from:
+        type: str
+        required: false
+        description: The sender address. Its domain must be verified with the SMTP provider.
+      cron_smtp_host:
+        type: str
+        required: false
+        description: The SMTP server that relays the mail, e.g. smtp.resend.com.
+      cron_smtp_user:
+        type: str
+        required: false
+        description: Username for the SMTP server.
+      cron_smtp_password:
+        type: str
+        required: false
+        description: Password for the SMTP server, e.g. an API key.
+      cron_smtp_port:
+        type: int
+        required: false
+        description:
+          - Port of the SMTP server.
+          - Port 465 uses implicit TLS; any other port uses STARTTLS, which is less often firewalled.
+
+      # ChemInventory syncing
+      cheminventory_inventory_id:
+        type: raw
+        required: false
+        description:
+          - Numeric ID of the ChemInventory inventory to sync.
+          - Find it by running the plugin's status command with the ChemInventory API key.
+      cheminventory_api_key:
+        type: str
+        required: false
+        description: ChemInventory API key.
+      cheminventory_datalab_api_key:
+        type: str
+        required: false
+        description: datalab API key used to write the synced items.
+      cheminventory_datalab_api_url:
+        type: str
+        required: false
+        description:
+          - The datalab API that items are synced into.
+          - Defaults to the host's api_url, with https:// added if no scheme is given.
+      cheminventory_cron_frequency:
+        type: str
+        required: false
+        description: When the sync runs, as a five field cron expression.
+      cheminventory_image:
+        type: str
+        required: false
+        description: Container image of the sync plugin.
+      cheminventory_image_version:
+        type: str
+        required: false
+        description: Version of the plugin image to run.
+      cheminventory_config_dir:
+        type: str
+        required: false
+        description:
+          - Directory holding the env file for the sync.
+          - The API keys are kept there, readable only by the docker user, rather than in the crontab.
+      cheminventory_log_file:
+        type: str
+        required: false
+        description: File holding the output of the most recent sync.
+
+      # Additional containers
+      extras:
+        type: dict
+        required: false
+        description:
+          - Additional services to reverse proxy, keyed by service name, each with a url and a port.
+          - The containers themselves are defined in src/extras/docker-compose.yml.
+
+      # Hardening and system upgrades
+      fail2ban_services:
+        type: list
+        elements: dict
+        required: false
+        description: Jails to configure, each with a name and its own options.
+      fail2ban_ignoreips:
+        type: list
+        elements: str
+        required: false
+        description: Addresses that are never banned.
+      fail2ban_bantime:
+        type: int
+        required: false
+        description: How long a host is banned, in seconds.
+      fail2ban_maxretry:
+        type: int
+        required: false
+        description: Number of failures before a host is banned.
+      fail2ban_findtime:
+        type: int
+        required: false
+        description: Window in which the failures must occur, in seconds.
+      fail2ban_banaction:
+        type: str
+        required: false
+        description: Action used to ban a host, e.g. an iptables or nftables action.
+      fail2ban_action:
+        type: str
+        required: false
+        description: Default action taken when a jail triggers.
+      fail2ban_backend:
+        type: str
+        required: false
+        description: How fail2ban watches log files.
+      fail2ban_chain:
+        type: str
+        required: false
+        description: Firewall chain the ban rules are added to.
+      fail2ban_protocol:
+        type: str
+        required: false
+        description: Protocol the ban rules apply to.
+      fail2ban_loglevel:
+        type: str
+        required: false
+        description: Logging level of the fail2ban daemon.
+      fail2ban_logtarget:
+        type: str
+        required: false
+        description: Where fail2ban writes its log.
+      fail2ban_syslog_target:
+        type: str
+        required: false
+        description: Syslog target, when logging to syslog.
+      fail2ban_syslog_facility:
+        type: int
+        required: false
+        description: Syslog facility, when logging to syslog.
+      fail2ban_socket:
+        type: str
+        required: false
+        description: Path of the fail2ban control socket.
+      fail2ban_pidfile:
+        type: str
+        required: false
+        description: Path of the fail2ban PID file.
+      fail2ban_destemail:
+        type: str
+        required: false
+        description: Address that ban notifications are sent to.
+      fail2ban_sendername:
+        type: str
+        required: false
+        description: Name used as the sender of ban notifications.
+      fail2ban_mta:
+        type: str
+        required: false
+        description: Mail transfer agent used to send notifications.
+      sshd_permit_root_login:
+        type: str
+        required: false
+        choices:
+          - 'yes'
+          - 'no'
+          - prohibit-password
+          - forced-commands-only
+        description:
+          - Value of the sshd PermitRootLogin setting.
+          - Defaults to no when ansible_user is not root, and to prohibit-password when it is, which keeps
+            key-only root login working.
+      apt_upgrade_textfile_collector_path:
+        type: str
+        required: false
+        description:
+          - Host directory read by the node_exporter textfile collector, where the apt metrics are written.
+          - Defaults to borg_textfile_collector_path, and must match the directory node_exporter is launched
+            with.
+  bootstrap:
+    short_description: Settings used by the bootstrap plays
+    description:
+      - The bootstrap plays run before facts are gathered, so only the settings they use are validated
+        there. The main entry point checks the rest.
+    options:
+      ansible_user:
+        type: str
+        required: true
+        description:
+          - The user that ansible connects as, and that owns the deployment files on the host.
+          - It is created by the bootstrap play if it does not already exist.
+      manage_system:
+        type: bool
+        required: false
+        description:
+          - Whether the playbook manages the host system, i.e. bootstrapping the ansible user as root,
+            mounting the data disk, installing system packages and Docker, configuring fail2ban and sshd,
+            and keeping packages up to date.
+          - Set to false on hosts managed externally, where Docker and the Python Docker SDK must already
+            be installed.

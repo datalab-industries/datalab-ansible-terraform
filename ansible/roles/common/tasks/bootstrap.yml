@@ -1,0 +1,4 @@
+---
+# Entry point for the bootstrap plays: loads the shared defaults and validates
+# the settings in the `bootstrap` entry of meta/argument_specs.yml.
+[]

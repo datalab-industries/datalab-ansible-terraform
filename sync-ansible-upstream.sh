@@ -44,6 +44,23 @@ if [ -n "$previous" ] && [ -f "$UPSTREAM/CHECKLIST.md" ] && [ -f CHECKLIST.md ];
     rm -f "$base"
 fi
 
+# The rsync above only adds and updates files, so also remove files under ansible/
+# that upstream has deleted since the last sync (e.g., when roles were merged).
+# A file is only removed if it is unchanged from upstream's copy at the last sync;
+# local changes are kept, with a warning.
+if [ -n "$previous" ]; then
+    while IFS= read -r path; do
+        [ -f "$path" ] || continue
+        if git -C "$UPSTREAM" show "$previous:$path" 2>/dev/null | cmp -s - "$path"; then
+            git rm -q --cached --ignore-unmatch -- "$path"
+            rm -f -- "$path"
+            echo "Removed $path, which was deleted upstream."
+        else
+            echo "Kept $path: it was deleted upstream but has local changes. Remove it if it is no longer needed."
+        fi
+    done < <(git -C "$UPSTREAM" diff --name-only --no-renames --diff-filter=D "$previous" HEAD -- ansible)
+fi
+
 git add -p ansible
 git add $(git ls-files ansible --others --exclude-standard)
 git add src/datalab-ansible-terraform docs zensical.toml .gitignore

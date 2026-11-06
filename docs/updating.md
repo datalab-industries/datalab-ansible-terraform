@@ -64,6 +64,7 @@ The script copies the upstream playbooks, `Makefile`, `README.md`, `requirements
 It asks for each change to the `ansible` directory to be reviewed before staging it, which matters most when the playbooks have local changes.
 It then commits the playbooks, `docs/`, `zensical.toml` and the submodule update, so the history records exactly which version of the playbooks is running.
 Changes to the other copied files are left uncommitted for review.
+Files that upstream has deleted from `ansible/` are removed too, unless they have local changes, in which case the script keeps them and says so.
 
 The script never touches the vaults, the inventory or `deployment-notes/`, and does not copy `tools/` (see [Managing multiple deployments](dlmeta.md)).
 

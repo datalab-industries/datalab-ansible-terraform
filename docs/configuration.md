@@ -39,8 +39,9 @@ The `manage_*` and `docker_*` settings are described in [Rootless Docker and man
 
 Every variable the playbooks accept is listed under [Variables](reference/index.md), including the ones most deployments never change.
 
-Each role declares its variables in `meta/argument_specs.yml`, and Ansible validates the inventory against them at the start of every run, before any task changes the server.
-This also happens under `--check` and when running a single tag, so a missing required setting or a value of the wrong type stops the run, naming the role and the variable.
+Every setting is declared in one file, `ansible/roles/common/meta/argument_specs.yml`, with its default in `ansible/roles/common/defaults/main.yml`.
+Ansible validates the inventory against it at the start of every run, before any task changes the server.
+This also happens under `--check` and when running a single tag, so a missing required setting or a value of the wrong type stops the run, naming the variable.
 A misspelled variable name is not recognised at all, so it is ignored rather than reported.
 
 ## *datalab* configuration

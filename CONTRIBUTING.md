@@ -5,14 +5,18 @@ Changes here reach every deployment that runs `sync-ansible-upstream.sh`, so kee
 
 ## Playbooks
 
-- Every role declares the variables it accepts in `ansible/roles/<role>/meta/argument_specs.yml`.
-  Add new variables there in the same commit that introduces them.
-  Ansible validates the inventory against these specs at the start of each run, and the [variable reference](https://datalab-industries.github.io/datalab-ansible-terraform/reference/) is generated from them.
+- Every setting lives in the `common` role, not in the role that uses it:
+  - its default in `ansible/roles/common/defaults/main.yml`, the only place defaults are set,
+  - its type and description in `ansible/roles/common/meta/argument_specs.yml`, under the matching `# Section` comment.
+
+  Add both in the same commit that introduces the setting.
+  `common` runs first in every play, so the defaults are visible to all roles, and Ansible validates the inventory against the spec before anything changes the host.
+  The [variable reference](https://datalab-industries.github.io/datalab-ansible-terraform/reference/) is generated from the spec and grouped by its section comments; a new section must also be added to `SECTIONS` in `scripts/gen-role-docs.py`.
+- Other roles have no `defaults/` or `meta/argument_specs.yml` of their own.
 - Mark an option `required` only if the playbook genuinely cannot run without it.
   A new required option breaks every existing inventory that omits it.
 - Give new features their own tag in `ansible/playbook.yml`, so they can be run with `make <tag>`.
-- A variable used by several roles must be described identically in each.
-  `make docs` fails if two roles describe the same variable differently.
+- Files deleted from `ansible/` are also removed from deployments by `sync-ansible-upstream.sh`, unless a deployment has changed them.
 - `pre-commit run --all-files` runs ansible-lint and the other checks that CI runs.
 
 ## Documentation

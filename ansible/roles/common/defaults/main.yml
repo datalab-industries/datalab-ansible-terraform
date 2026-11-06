@@ -1,0 +1,254 @@
+---
+# Defaults for every setting the playbook accepts.
+#
+# The common role is loaded first in each play, so these defaults are visible to
+# the whole play, including the `when:` conditions in playbook.yml. They have
+# the lowest variable precedence, so any of them can be overridden per host in
+# the inventory. Every setting is declared and described in
+# meta/argument_specs.yml, which the variable reference is generated from;
+# this file is the only place their defaults are set.
+
+# =============================================================================
+# Core deployment
+# =============================================================================
+
+# Home directory of the ansible user, where the datalab repo, nginx files and
+# other deployment files are kept. root behaves differently than other users, so
+# set the home dir accordingly. Override for accounts whose home is elsewhere
+# (e.g. a service account such as www-data).
+ansible_user_home_dir: "{{ '/' + ansible_user if ansible_user == 'root' else '/home/' + ansible_user }}"
+
+# Whether the playbook manages nginx and its TLS certificates. Set to false on
+# hosts where a reverse proxy is managed externally (e.g. a system nginx, or a
+# proxy on another machine), in which case the app and API containers still
+# publish their ports for it to proxy to, but no nginx or certbot containers,
+# and no certificate renewal cron job, are created.
+manage_nginx: true
+
+# Whether containers are run by a rootless docker daemon rather than the
+# system-wide one. Rootless daemons must be installed and running before the
+# playbook is run; the docker role does not install or configure them.
+docker_rootless: false
+
+# The user that runs docker commands. For rootful docker this is the ansible
+# user (added to the docker group); for rootless docker it is the user that owns
+# the daemon, which ansible will become for any docker-related tasks.
+docker_user: "{{ ansible_user }}"
+
+# Whether docker-related tasks need to become docker_user
+docker_become: "{{ docker_user != ansible_user }}"
+
+# The daemon socket; docker_user_uid is looked up at the start of the play
+docker_host: "{{ ('unix:///run/user/' ~ (docker_user_uid | default('')) ~ '/docker.sock') if docker_rootless else 'unix:///var/run/docker.sock' }}"
+
+# PATH for cron jobs that call docker. Cron only searches /usr/bin:/bin, but
+# rootless installs often put the CLI in ~/bin or /usr/local/bin
+docker_cron_path: "{{ docker_user_home_dir }}/bin:/usr/local/bin:/usr/bin:/bin"
+
+# A group shared by ansible_user and docker_user. When set, and the two users
+# differ, files synced by ansible (e.g., build contexts, env files) are made
+# readable by this group so that docker_user can use them. docker_user also
+# needs to be able to traverse the ansible user's home directory.
+docker_shared_group: ""
+# Whether the playbook manages the host system: bootstrapping the ansible user
+# as root, mounting the data disk, installing system packages and docker,
+# configuring fail2ban and sshd, and keeping packages up-to-date.
+# Set to false on hosts where these are managed externally (e.g., when there is
+# no root access), in which case docker and the python docker SDK must already be
+# installed, and only the datalab services themselves will be deployed.
+manage_system: true
+
+# Filesystem type of the data disk, when mount_data_disk is set
+data_disk_type: xfs
+
+# =============================================================================
+# Backups
+# =============================================================================
+
+borg_encryption_passphrase: ""
+borg_exclude_patterns:
+  - /data/backups
+borg_exclude_from: []
+borg_one_file_system: true
+borg_encryption_passcommand: false
+# Long enough for an overlapping run to wait its turn rather than fail: the
+# cache is persistent, so its lock is shared between runs
+borg_lock_wait_time: 300
+borg_ssh_key_type: ed25519
+borg_ssh_key_name: id_{{ borg_ssh_key_type }}
+borg_ssh_key_file_path: "{{ backup_user_info.home }}/.ssh/{{ borg_ssh_key_name }}"
+borg_ssh_command: ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=3
+borg_remote_path: false
+borg_remote_rate_limit: 0
+# Only the uploaded files need backing up from disk: the database is dumped
+# separately by the mongodb_databases hook below, and everything else under
+# /data (native snapshots, logs, rootless docker's data root) is either
+# excluded, reproducible, or already covered.
+borg_source_directories:
+  - /data/files
+borg_retention_policy:
+  keep_daily: 30
+  keep_weekly: 0
+  keep_monthly: 12
+  keep_yearly: 4
+borg_version: false
+borgmatic_timer_cron_name: borgmatic
+borgmatic_timer: cron
+borgmatic_timer_hour: "{{ range(0, 5) | random(seed=inventory_hostname) }}"
+borgmatic_timer_minute: "{{ range(0, 59) | random(seed=inventory_hostname) }}"
+borg_install_method: package
+borg_require_epel: "{{ ansible_os_family == 'RedHat' and ansible_distribution != 'Fedora' }}"
+
+# Directory for borgmatic config, ssh keys and scripts, mounted into the
+# borgmatic container
+borg_config_dir: "{{ docker_user_home_dir }}/borgmatic"
+
+# Persistent borg cache, mounted into the borgmatic container. Without it, the
+# files cache (inode/size/mtime) is lost with each container, so every run
+# re-reads and re-hashes every source file. Borg marks this directory with
+# CACHEDIR.TAG, so it is excluded from backups even if it sits under a source
+# directory.
+borg_cache_dir: "{{ borg_config_dir }}/cache"
+
+# Fixed hostname and borg host ID for the borgmatic containers. Otherwise each
+# container gets a random hostname, so archives record a different host every
+# run and borg treats locks left by a killed run as held by another machine,
+# which it will not break as stale.
+borg_container_hostname: datalab-borgmatic
+
+# Host directory read by node_exporter's textfile collector. The borgmatic
+# container bind-mounts this to /metrics and writes status metrics there.
+# Rootless containers cannot write to system directories, so use one owned by
+# the docker user instead.
+borg_textfile_collector_path: "{{ (borg_config_dir ~ '/metrics') if docker_rootless else '/var/lib/node_exporter/textfile_collector' }}"
+
+borgmatic_hooks:
+  before_backup:
+    - echo "`date` - Starting backup."
+  after_backup:
+    - python3 /borgmatic/write-metrics.py success
+  on_error:
+    - python3 /borgmatic/write-metrics.py error
+  mongodb_databases:
+    - name: all
+      hostname: datalab-database-1
+      port: 27017
+borgmatic_checks:
+  - name: repository
+    frequency: 4 weeks
+  - name: archives
+    frequency: 6 weeks
+borgmatic_check_last: 3
+borgmatic_store_atime: true
+borgmatic_store_ctime: true
+borgmatic_relocated_repo_access_is_ok: false
+borgmatic_version: ">=1.7.11"
+
+borg_venv_path: /opt/borgmatic
+
+# =============================================================================
+# Monitoring
+# =============================================================================
+
+# Ports for the exporters and prometheus, which all use host networking.
+# Override these if the host already runs its own exporters on these ports.
+monitoring_node_exporter_port: 9100
+monitoring_prometheus_port: 9090
+monitoring_cadvisor_port: 8080
+
+# Whether to run cAdvisor for per-container metrics. It uses noticeably more CPU
+# than the other exporters, so is off by default; when off, any existing
+# cadvisor container is removed.
+monitoring_cadvisor: false
+
+# =============================================================================
+# Emails for failed cron jobs
+# =============================================================================
+
+# When all of the settings below are set in the inventory, cron emails any
+# output from the docker user's cron jobs (which only print their logs when
+# they fail) to cron_mailto, relayed through the SMTP server via msmtp.
+# When none are set, this role does nothing; setting only some is an error.
+#
+# For example, with Resend (https://resend.com/docs/send-with-smtp):
+#   cron_smtp_host: smtp.resend.com
+#   cron_smtp_user: resend
+#   cron_smtp_password: <a Resend API key>
+
+# Where to send failed cron job output, e.g., a team mailing list
+# cron_mailto:
+
+# The sender address; its domain must be verified with the SMTP provider
+# cron_mail_from:
+
+# cron_smtp_host:
+# cron_smtp_user:
+# cron_smtp_password:
+
+# STARTTLS, which is less often firewalled than implicit TLS on 465; any port
+# other than 465 uses STARTTLS
+cron_smtp_port: 587
+
+# =============================================================================
+# ChemInventory syncing
+# =============================================================================
+
+# Periodic syncing of a ChemInventory inventory into datalab, using
+# https://github.com/datalab-industries/datalab-cheminventory-plugin
+#
+# The sync is only configured when cheminventory_inventory_id,
+# cheminventory_api_key and cheminventory_datalab_api_key are all set in the
+# inventory; otherwise this role does nothing.
+
+# When to run the sync, as a standard 5-field cron expression
+# (minute hour day-of-month month day-of-week). Defaults to daily at 6:11am.
+cheminventory_cron_frequency: "11 6 * * *"
+
+# The datalab API that items are synced into; defaults to the host's api_url,
+# with https:// added if no scheme is given.
+cheminventory_datalab_api_url: "{{ api_url if api_url is match('^https?://') else 'https://' ~ api_url }}"
+
+# The version of the plugin image to run
+cheminventory_image: ghcr.io/datalab-industries/datalab-cheminventory-plugin
+cheminventory_image_version: v1.4.1
+
+# Directory for the sync's env file, which holds the API keys so that they do
+# not appear in the crontab
+cheminventory_config_dir: "{{ docker_user_home_dir }}/cheminventory"
+
+# Output of the most recent sync
+cheminventory_log_file: "{{ docker_user_home_dir }}/last_cheminventory_sync.txt"
+
+# =============================================================================
+# Hardening and system upgrades
+# =============================================================================
+
+fail2ban_loglevel: INFO
+fail2ban_logtarget: /var/log/fail2ban.log
+fail2ban_syslog_target: /var/log/fail2ban.log
+fail2ban_syslog_facility: 1
+fail2ban_socket: /var/run/fail2ban/fail2ban.sock
+fail2ban_pidfile: /var/run/fail2ban/fail2ban.pid
+fail2ban_sendername: Fail2ban
+fail2ban_ignoreips:
+  - 127.0.0.1/8
+fail2ban_bantime: 600
+fail2ban_maxretry: 3
+fail2ban_findtime: 600
+fail2ban_backend: auto
+fail2ban_destemail: root@localhost
+fail2ban_banaction: iptables-multiport
+fail2ban_mta: sendmail
+fail2ban_protocol: tcp
+fail2ban_chain: INPUT
+fail2ban_action: "%(action_)s"
+fail2ban_services:
+  - name: sshd
+
+# When ansible_user is not root, ban root SSH outright. Otherwise allow
+# key-only root login (matches the legacy root-only setup).
+sshd_permit_root_login: "{{ 'no' if ansible_user != 'root' else 'prohibit-password' }}"
+
+# Directory read by node_exporter's textfile collector (see the monitoring
+# role); must match the one node_exporter is launched with.
+apt_upgrade_textfile_collector_path: "{{ borg_textfile_collector_path | default('/var/lib/node_exporter/textfile_collector') }}"

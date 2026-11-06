@@ -8,19 +8,18 @@ The playbook schedules several cron jobs as the docker user: certificate renewal
 Each job writes its output to `~/last_<job>.txt` and only prints it if the job fails.
 Cron then emails that output to the `MAILTO` address.
 
-This is separate from the SMTP settings that *datalab* itself uses for email login.
-You can use the same SMTP provider for both.
+This is separate from the SMTP settings that *datalab* itself uses for email login, though both can use the same provider.
 
 ## Setup
 
 1. Get SMTP credentials, e.g., from [Resend](https://resend.com/docs/send-with-smtp), and verify the sender domain with the provider.
-2. Add the settings to your inventory:
+2. Add the settings to the inventory:
    ```yaml
    cron_mailto: <the address to email failed cron jobs to>
    cron_mail_from: <the sender address, on a domain verified with the SMTP provider>
    cron_smtp_host: smtp.resend.com
    cron_smtp_user: resend
-   cron_smtp_password: <your Resend API key>
+   cron_smtp_password: <Resend API key>
    cron_smtp_port: 587  # optional; the default
    ```
    All settings except `cron_smtp_port` must be set together.
@@ -48,14 +47,11 @@ Add an **Email** integration to a PagerDuty service, and add its address to `cro
 Multiple addresses can be separated by commas:
 
 ```yaml
-cron_mailto: "team@example.com,datalab-cron@yourorg.pagerduty.com"
+cron_mailto: "team@example.com,datalab-cron@example.pagerduty.com"
 ```
 
 The email subject names the host and the job.
 Configure the integration to open a new incident only if one is not already open for the same subject.
 Otherwise, each repeated failure opens a new incident.
 
-Note that:
-
-- incidents are not resolved automatically when a job next succeeds,
-- the test email sent when the settings change will also raise an incident.
+Incidents are not resolved automatically when a job next succeeds, and the test email sent when the settings change also raises one.

@@ -1,0 +1,190 @@
+/* The styling here follows the main datalab documentation (docs.datalab-org.io,
+   `pydatalab/docs/css/reference.css` in the datalab repository) and the datalab user
+   guide (guide.datalab-org.io, `docs/stylesheets/extra.css` in datalab-org/datalab-user-guide).
+   Keep the three in step. */
+
+@import url("https://cdnjs.cloudflare.com/ajax/libs/Iosevka/6.0.1/iosevka/iosevka.min.css");
+@import url("https://cdnjs.cloudflare.com/ajax/libs/Iosevka/6.0.1/iosevka-aile/iosevka-aile.min.css");
+
+/* Body text is set by `theme.font` in zensical.toml, but only Google fonts can be
+   loaded that way, so both Iosevka families come from the imports above: Iosevka for
+   code (also via `theme.font`) and Iosevka Aile for headings and navigation. */
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4,
+.md-header__title,
+.md-tabs,
+.md-nav,
+.md-typeset .grid.cards > ul > li > p:first-child,
+.md-typeset .grid.cards > ul > li > p:first-child strong {
+  font-family: "Iosevka Aile Web", var(--md-text-font-family);
+}
+
+/* The palette is a muted version of the three logo colours (orange #c9552b,
+   green #1d9e75, purple #7f77dd), so the logo itself stays the most vivid thing
+   on the page in light mode. Custom primary colour (`primary = "custom"`): orange. */
+:root {
+  --md-primary-fg-color: #d4a08c;
+  --md-primary-fg-color--light: #dfb5a5;
+  --md-primary-fg-color--dark: #c28a73;
+  --md-primary-bg-color: #000000de;
+  --md-primary-bg-color--light: #0000008a;
+}
+
+/* Links use the muted green rather than the primary, with separate shades for
+   light and dark mode so that each stays readable as text. */
+[data-md-color-primary="custom"]:not([data-md-color-scheme="slate"]) {
+  --md-typeset-a-color: #3d7564;
+  --md-accent-fg-color: #2f5c4e;
+}
+
+/* Muted colours look washed out on the slate background, so dark mode uses the
+   full logo colours, with solid black header text for contrast on the orange. */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #c9552b;
+  --md-primary-fg-color--light: #d66f49;
+  --md-primary-fg-color--dark: #a8441f;
+  --md-primary-bg-color: #000;
+  --md-typeset-a-color: #1d9e75;
+  --md-accent-fg-color: #3cc39a;
+}
+
+/* Text-only header: the logo appears on the landing page instead, and "Home" is
+   always one click away in the tabs. The theme falls back to its own icon when
+   `theme.logo` is unset, so that has to be hidden too. */
+.md-header__button.md-logo,
+.md-nav__button.md-logo {
+  display: none;
+}
+
+/* Echo the black-bordered card of datalab-org.io: a hard rule under the header
+   (or under the tabs, where they show) rather than a soft drop shadow. */
+.md-header,
+.md-header--shadow {
+  box-shadow: none;
+  border-bottom: 3px solid #000;
+}
+
+@media screen and (min-width: 76.25em) {
+  .md-header:has(+ .md-container .md-tabs) {
+    border-bottom: none;
+  }
+
+  .md-tabs {
+    border-bottom: 3px solid #000;
+  }
+}
+
+/* The search box is tinted with translucent black by default, which turns the
+   header colour muddy; use a white box with the same black outline instead. */
+@media screen and (min-width: 60em) {
+  .md-search__form,
+  .md-search__form:hover {
+    background-color: #fff;
+    box-shadow: inset 0 0 0 2px #000;
+  }
+
+  .md-search__input::placeholder,
+  .md-search__icon {
+    color: var(--md-primary-bg-color--light);
+  }
+}
+
+/* The logo's long purple spike leaves its ring and "dl" left of the image's centre
+   (5.77 against 9 in viewBox units, out of 100), so shift it to centre the ring. */
+.md-typeset .home-logo img {
+  transform: translateX(3.2%);
+}
+
+/* The title under the logo on the landing page, styled like the title on
+   datalab-org.io. */
+.md-typeset h1.home-title {
+  margin: 0 auto 0.75em;
+  color: var(--md-default-fg-color);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* The invisible permalink after the heading still takes up width, which would
+   pull the centred title to the left. */
+.md-typeset h1.home-title .headerlink {
+  display: none;
+}
+
+/* Four landing-page cards: two per row where they fit, otherwise one per row.
+   The default `auto-fit` can otherwise leave three in a row and orphan the fourth. */
+.md-typeset .home-cards {
+  grid-template-columns: 1fr;
+}
+
+@media screen and (min-width: 60em) {
+  .md-typeset .home-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Push each card's link to the bottom, so the links line up across a row. */
+.md-typeset .grid.cards.home-cards > ul > li {
+  display: flex;
+  flex-direction: column;
+}
+
+.md-typeset .grid.cards.home-cards > ul > li > hr + p {
+  flex: 1 0 auto;
+}
+
+:root {
+  --dl-card-shadow: rgba(120, 116, 175, 0.5);
+}
+
+/* The full logo purple, a little stronger to stand out against the slate. */
+[data-md-color-scheme="slate"] {
+  --dl-card-shadow: rgba(127, 119, 221, 0.6);
+}
+
+/* Room between the cards for the shadows to sit in. */
+.md-typeset .grid.cards {
+  grid-gap: 1.2rem;
+}
+
+/* Bold, square outlines and the block shadow of the card on datalab-org.io
+   (scaled down from its 32px to suit several smaller cards), lifting further on
+   hover in place of the default soft shadow. The outline follows the text colour
+   so it stays visible in dark mode. */
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid > .card {
+  border: 3px solid var(--md-default-fg-color);
+  border-radius: 0;
+  box-shadow: 8px 8px 0 0 var(--dl-card-shadow);
+  transition: box-shadow 125ms, transform 125ms;
+}
+
+.md-typeset .grid.cards > ul > li:hover,
+.md-typeset .grid > .card:hover {
+  border-color: var(--md-default-fg-color);
+  box-shadow: 12px 12px 0 0 var(--dl-card-shadow);
+  transform: translate(-4px, -4px);
+}
+
+.md-typeset .grid.cards > ul > li > hr {
+  border-bottom: 2px solid var(--md-default-fg-color--lighter);
+}
+
+/* Card links are styled as short lowercase commands, in the code font. */
+.md-typeset .home-cards li > p > a {
+  font-family: var(--md-code-font-family);
+}
+
+/* Icon-led links inside the cards: keep the icon and label on one line. */
+.md-typeset .home-cards .twemoji {
+  vertical-align: -0.15em;
+}
+
+/* Admonitions keep their per-type colour but get the same heavier, square
+   outline so they read as part of the same family. */
+.md-typeset .admonition,
+.md-typeset details {
+  border-width: 2px;
+  border-radius: 0;
+}

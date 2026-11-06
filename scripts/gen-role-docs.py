@@ -97,17 +97,67 @@ def as_text(value) -> str:
     return str(value or "").strip()
 
 
+# Longer list and dict defaults are shown as a YAML block under the table, as a
+# table cell can only hold a single line.
+INLINE_LIMIT = 60
+
+
+def inline_yaml(value) -> str:
+    """A list or dict as one line of flow-style YAML, in its original order."""
+    return yaml.safe_dump(value, default_flow_style=True, sort_keys=False, width=float("inf")).strip()
+
+
+def is_block(value) -> bool:
+    """Whether a default is too long or complex to show inline in the table."""
+    if not isinstance(value, (list, dict)):
+        return False
+    text = inline_yaml(value)
+    return len(text) > INLINE_LIMIT or "`" in text
+
+
+class IndentedDumper(yaml.SafeDumper):
+    """Indents list items under their key, as in the playbooks' own YAML."""
+
+    def increase_indent(self, flow=False, indentless=False):
+        return super().increase_indent(flow, False)
+
+
+def block_anchor(name: str) -> str:
+    return f"default-{name.replace('_', '-')}"
+
+
 def as_code(value) -> str:
     if value is None or value == "":
         return ""
     if isinstance(value, bool):
         return f"`{str(value).lower()}`"
     if isinstance(value, (list, dict)):
-        return f"`{yaml.safe_dump(value, default_flow_style=True).strip()}`"
+        return f"`{inline_yaml(value)}`"
     text = str(value)
     if "{{" in text:
         return "computed"
     return f"`{text}`"
+
+
+def default_blocks(rows: list[tuple[str, dict]]) -> list[str]:
+    """The long defaults of a table, as YAML that can be pasted into the inventory."""
+    lines = []
+    for name, var in rows:
+        if not is_block(var["default"]):
+            continue
+        body = yaml.dump(
+            {name: var["default"]}, Dumper=IndentedDumper, default_flow_style=False, sort_keys=False, width=100
+        )
+        lines += [
+            f'<a id="{block_anchor(name)}"></a>',
+            f'??? example "Default for `{name}`"',
+            "",
+            "    ```yaml",
+            *(f"    {line}" if line else "" for line in body.rstrip().splitlines()),
+            "    ```",
+            "",
+        ]
+    return lines
 
 
 def collect() -> dict[str, dict]:
@@ -154,10 +204,11 @@ def table(rows: list[tuple[str, dict]]) -> list[str]:
             description += " One of: " + ", ".join(as_code(c) for c in var["choices"]) + "."
         if var["required"]:
             description = "**Required.** " + description
+        default = var["default"]
         cells = [
             f"`{name}`",
             f"`{var['type']}`",
-            as_code(var["default"]),
+            f"[see below](#{block_anchor(name)})" if is_block(default) else as_code(default),
             ", ".join(f"`{r}`" for r in var["roles"]),
             description,
         ]
@@ -195,7 +246,7 @@ def main() -> None:
         "# Variables",
         "",
         "Every variable the playbooks accept, generated from the roles' argument specs.",
-        "Ansible validates your inventory against those specs at the start of every run, including under `--check` and when running a single tag, so a missing or wrongly typed value fails before anything is changed on the server.",
+        "Ansible validates the inventory against those specs at the start of every run, including under `--check` and when running a single tag, so a missing or wrongly typed value fails before anything is changed on the server.",
         "",
         "!!! note",
         "    Validation only checks the variables listed here.",
@@ -204,17 +255,17 @@ def main() -> None:
         "Set these per host in `ansible/inventory.yml`.",
         "See [Configuration](../configuration.md) for how the inventory fits together.",
         "",
-        "## Settings you provide",
+        "## Per-deployment settings",
         "",
-        "These appear in `ansible/inventory.example.yml`.",
-        "Only `ansible_user`, `api_url` and `app_url` are required; the rest switch on an optional feature, and each feature is skipped entirely unless its settings are given.",
+        "The settings in `ansible/inventory.example.yml`.",
+        "Only `ansible_user`, `api_url` and `app_url` are required; the others each enable an optional feature, which is skipped unless its settings are given.",
         "",
         *table([(n, variables[n]) for n in provided]),
         "",
-        "## Defaults you can override",
+        *default_blocks([(n, variables[n]) for n in provided]),
+        "## Defaults",
         "",
-        "Everything else the roles accept, with the value used when you leave it unset.",
-        "Most deployments never change these.",
+        "All other variables the roles accept, with the value used when unset.",
         "A default shown as `computed` is derived from other settings, such as the user or whether rootless Docker is in use.",
         "",
     ]
@@ -242,7 +293,7 @@ def main() -> None:
             context.append(f"Run these tasks on their own with `make {tag}`.")
         if context:
             lines += [" ".join(context), ""]
-        lines += table(rows) + [""]
+        lines += table(rows) + [""] + default_blocks(rows)
 
     if OUT.exists():
         shutil.rmtree(OUT)

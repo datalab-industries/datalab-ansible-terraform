@@ -11,9 +11,9 @@ See the [*datalab* plugins documentation](https://docs.datalab-org.io/en/latest/
 
 !!! warning
     Plugins run with full API server privileges.
-    Only install plugins from sources you trust.
+    Only install plugins from trusted sources.
 
-To install plugins on a server deployed with this repository:
+To install plugins:
 
 1. Edit `./src/plugins.toml`.
    The Ansible role copies it to the server so the Dockerfile uses it at build time.

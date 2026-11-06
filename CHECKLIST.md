@@ -1,9 +1,9 @@
 # Deployment checklist
 
-This checklist belongs to your deployment.
-Tick items off as you complete them, remove the ones that do not apply, and add your own.
+This checklist belongs to the deployment.
+Tick items off when done, remove the ones that do not apply, and add new ones.
 
-`sync-ansible-upstream.sh` never overwrites it. It merges in any items added upstream, keeping your edits, and tells you if it could not merge them cleanly.
+`sync-ansible-upstream.sh` never overwrites it. It merges in items added upstream, keeps local edits, and reports any it could not merge cleanly.
 
 Sections without a label are required for a working instance.
 Sections marked **(optional)** can be skipped, and items marked **Optional:** can be skipped within a required section.
@@ -17,7 +17,7 @@ For *datalab* settings, see the [*datalab* configuration docs](https://docs.data
 - [ ] Pin `src/datalab` to the desired *datalab* release.
 - [ ] Run `make quickstart`, then fill in the host, `ansible_user`, `app_url` and `api_url` in `ansible/inventory.yml` (`docs/configuration.md`).
 - [ ] **Optional:** if the API is under a root path on the app's host (e.g., `example.org/api`), set `ROOT_PATH` in `prod_config.json`.
-- [ ] **Optional:** if you do not have root access or use rootless Docker, set the `manage_*` and `docker_*` settings (`docs/managed-hosts.md`).
+- [ ] **Optional:** without root access, or with rootless Docker, set the `manage_*` and `docker_*` settings (`docs/managed-hosts.md`).
 - [ ] Set `IDENTIFIER_PREFIX` in `ansible/vaults/datalab/prod_config.json`.
 - [ ] Set `VUE_APP_API_URL` in `ansible/vaults/datalab/.env`.
 - [ ] Set a long random `PYDATALAB_SECRET_KEY` in `ansible/vaults/datalab/.env_server`, e.g., from `openssl rand -hex 32`.
@@ -45,7 +45,7 @@ See the [*datalab* login docs](https://docs.datalab-org.io/en/stable/config/#use
 
 Only needed for email login.
 
-- [ ] Get SMTP credentials from your institution or a provider such as [resend](https://resend.com/), and verify the sender domain.
+- [ ] Get SMTP credentials from an institution or a provider such as [resend](https://resend.com/), and verify the sender domain.
 - [ ] Add the SMTP settings to `prod_config.json`:
   ```json
   "EMAIL_AUTH_SMTP_SETTINGS": {
@@ -88,7 +88,7 @@ Without Borg, only *datalab*'s native snapshots are taken, and they are stored o
 ## Monitoring (optional)
 
 - [ ] Set up uptime monitoring, e.g., with [Upptime](https://github.com/upptime/upptime) (`docs/monitoring.md`).
-- [ ] Get access to a Prometheus/Grafana instance that accepts remote writes, e.g. the central *datalab* one, or your own from [datalab-grafana-deployment](https://github.com/datalab-industries/datalab-grafana-deployment).
+- [ ] Get access to a Prometheus/Grafana instance that accepts remote writes, e.g. the central *datalab* one, or a self-hosted one from [datalab-grafana-deployment](https://github.com/datalab-industries/datalab-grafana-deployment).
 - [ ] Set `datalab_prefix`, `prometheus_remote_write_url`, `prometheus_user` and `prometheus_password` in the inventory.
 - [ ] **Optional:** set `monitoring_cadvisor: true` for per-container metrics.
 - [ ] Run `make monitoring` and check that metrics appear in Grafana.
@@ -111,12 +111,12 @@ Without Borg, only *datalab*'s native snapshots are taken, and they are stored o
 
 ## Ongoing maintenance
 
-- [ ] Run `make maintenance` regularly to update system packages.
+- [ ] Run `make maintenance` regularly to update system packages and Docker (`docs/updating.md`).
 - [ ] Update *datalab* after reading the release notes and checking backups (`docs/updating.md`).
 - [ ] Sync with the upstream template with `./sync-ansible-upstream.sh`.
 - [ ] Record changes and incidents in `deployment-notes/`.
 
-## Your own items
+## Deployment-specific items
 
-Add anything specific to this deployment below, rather than in the sections above.
-Upstream only adds items to its own sections, so keeping yours here means a sync can merge new items without a conflict.
+Add items specific to this deployment below, rather than in the sections above.
+Upstream only adds items to its own sections, so a sync can then merge new items without conflicts.

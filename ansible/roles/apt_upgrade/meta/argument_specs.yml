@@ -6,3 +6,16 @@ argument_specs:
       - Upgrades installed packages and configures unattended upgrades, or dnf-automatic
         on RHEL-like distributions.
       - Runs under the maintenance tag, and is skipped when manage_system is false.
+      - On Ubuntu, schedules unattended upgrades overnight and, when monitoring is
+        configured, exports their status to node_exporter's textfile collector.
+      - On RHEL-like distributions, fails if the enabled dnf repositories can no
+        longer provide OS updates.
+    options:
+      apt_upgrade_textfile_collector_path:
+        type: str
+        required: false
+        description:
+          - Host directory read by the node_exporter textfile collector, where the
+            apt metrics are written.
+          - Defaults to borg_textfile_collector_path, and must match the directory
+            node_exporter is launched with.

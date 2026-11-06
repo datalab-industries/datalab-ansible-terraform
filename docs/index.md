@@ -4,61 +4,61 @@ hide:
   - toc
 ---
 
-# Deploying *datalab*
+<div align="center" class="home-logo" markdown>
+![datalab logo](assets/logo.svg#only-light){ width="160" }
+![datalab logo](assets/logo-dark.svg#only-dark){ width="160" }
+</div>
 
-This repository contains tools and rules for deploying *datalab* instances with Ansible.
-Use it as a template for your own deployment, and resync it when new versions are released.
+# Deploying *datalab* { .home-title }
 
-The playbooks can set up *datalab* on existing hardware, including shared hardware.
-All mandatory services run in containers, so the full NGINX and *datalab* stack can run alongside an existing reverse proxy that manages other services, which you configure yourself.
+Ansible playbooks for deploying *datalab* instances.
+Each deployment is a copy of this template repository, resynced when new versions are released.
 
-Most of the configuration is transferable between instances.
-Ideally you only provide instance-specific settings such as usernames and domain names, which lets you keep your copy in sync with this template as *datalab*'s requirements change.
+The playbooks set up *datalab* on existing hardware, including shared servers.
+All services run in containers, so the NGINX and *datalab* stack can run alongside an existing reverse proxy for other services.
 
-<div class="grid cards" markdown>
+Most of the configuration is shared between instances.
+A deployment only sets instance-specific values such as usernames and domain names, so it can stay in sync with the template as *datalab*'s requirements change.
 
--   __Deploying for the first time__
+<div class="grid cards home-cards" markdown>
+
+-   :material-rocket-launch-outline:{ .lg .middle } __Deploying for the first time__
+
+    ---
 
     Read in order: prerequisites, the inventory and vaults, then the playbook itself.
 
-    [Installation](installation.md) ·
-    [Configuration](configuration.md) ·
-    [Deploying](deployment.md)
+    [:material-arrow-right: &nbsp; getting-started](installation.md)
 
--   __Running an instance__
+-   :material-server-outline:{ .lg .middle } __Running an instance__
 
-    Keeping *datalab* and the playbooks current, and the tasks that follow a first deployment.
+    ---
 
-    [Updating](updating.md) ·
-    [Deployment checklist](checklist.md)
+    Updating *datalab*, the playbooks and the server, the tasks after a first deployment, and managing several deployments at once.
 
--   __Optional features__
+    [:material-arrow-right: &nbsp; updating](updating.md)
 
-    Each stands alone. Add them whenever you need them.
+-   :material-puzzle-outline:{ .lg .middle } __Optional features__
 
-    [Backups](backups.md) ·
-    [Monitoring](monitoring.md) ·
-    [Cron emails](cron-email.md) ·
-    [ChemInventory](cheminventory.md) ·
-    [Plugins](plugins.md) ·
-    [Extra containers](extras.md) ·
-    [Rootless Docker](managed-hosts.md) ·
-    [Bitwarden](bitwarden.md)
+    ---
 
--   __Looking something up__
+    Backups, monitoring, cron emails, ChemInventory, plugins, extra containers, rootless Docker and Bitwarden.
 
-    Every variable the playbooks accept, and where to put your own documentation.
+    [:material-arrow-right: &nbsp; features](features.md)
 
-    [Variables](reference/index.md) ·
-    [Documenting your deployment](project-docs.md)
+-   :material-book-open-variant:{ .lg .middle } __Looking something up__
+
+    ---
+
+    Every variable the playbooks accept, and notes for a single deployment.
+
+    [:material-arrow-right: &nbsp; reference](reference/index.md)
 
 </div>
 
 ## What gets deployed
 
-The `./ansible` directory contains Ansible playbooks that take a fresh VM and install, configure, launch, relaunch and manage the *datalab* and NGINX containers.
-
-Stack:
+The playbooks in `./ansible` take a fresh VM and install, configure, launch and manage the *datalab* and NGINX containers:
 
 - NGINX, with SSL certificates from certbot
 - Docker Compose for the API, app and database containers
@@ -69,7 +69,7 @@ Stack:
 ## *datalab* versioning
 
 The playbooks deploy the *datalab* version that is included as a git submodule at `src/datalab`.
-Only run the playbook from a clean repository state (i.e., no uncommitted changes) so that deployments are reproducible.
+Run the playbook only from a clean repository, with no uncommitted changes, so that deployments are reproducible.
 
 ## Supported versions
 
@@ -83,10 +83,12 @@ Only run the playbook from a clean repository state (i.e., no uncommitted change
 | v0.6.x | v0.6.x |
 | v0.7.x | v0.7.x-rc.x |
 | v0.8.x | v0.7.x |
+| v0.9.x | v0.7.x |
+| v0.10.x | v0.8.x-alpha.x |
 
 ## Changelog
 
-The changelog for this repository is in the [release notes](https://github.com/datalab-industries/datalab-ansible-terraform/releases) on GitHub.
+See the [release notes](https://github.com/datalab-industries/datalab-ansible-terraform/releases) on GitHub.
 
 ## Related repositories
 
@@ -95,5 +97,5 @@ The changelog for this repository is in the [release notes](https://github.com/d
 
 ## Getting help
 
-Chat with us on [Slack](https://join.slack.com/t/datalab-world/shared_invite/zt-2h58ev3pc-VV496~5je~QoT2TgFIwn4g) or raise an issue on [GitHub](https://github.com/datalab-industries/datalab-ansible-terraform/issues).
+Ask on [Slack](https://join.slack.com/t/datalab-world/shared_invite/zt-2h58ev3pc-VV496~5je~QoT2TgFIwn4g) or raise an issue on [GitHub](https://github.com/datalab-industries/datalab-ansible-terraform/issues).
 The main *datalab* documentation is at [docs.datalab-org.io](https://docs.datalab-org.io).

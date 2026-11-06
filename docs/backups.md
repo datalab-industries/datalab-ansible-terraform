@@ -21,23 +21,23 @@ They need much less space than native backups and can be synced to remote Borg s
 By default, only `/data/files` is backed up from disk, alongside a dump of the *datalab* MongoDB database made by borgmatic's database hook.
 Other paths under `/data`, such as native snapshots in `/data/backups`, logs and the data directory of a rootless Docker daemon, are left out.
 They are either reproducible or covered elsewhere.
-Set `borg_source_directories` in your inventory to back up more.
+Set `borg_source_directories` in the inventory to back up more.
 
-You need a remote server running Borg, ideally separate from the *datalab* server.
-We recommend [rsync.net](https://www.rsync.net/products/borg.html), which has good Borg support.
+Borg backups need a remote server running Borg, ideally separate from the *datalab* server.
+[rsync.net](https://www.rsync.net/products/borg.html) has good Borg support.
 
 !!! note
-    If you run a *datalab* instance and need a place for encrypted Borg backups, reach out to us.
+    *datalab* instances that need a host for encrypted Borg backups can contact us.
     We may be able to act as a secondary backup host.
 
 ### Setup
 
-1. Create an SSH key pair for passwordless access to your remote Borg server.
+1. Create an SSH key pair for passwordless access to the remote Borg server.
    Save the private key as `ansible/vaults/borg/.ssh/id_ed25519` and encrypt it.
 2. Optionally, add other files to `ansible/vaults/borg/.ssh`, each encrypted.
    All of them are mounted into the Borg container during backups.
    For example, add a `config` for extra settings (e.g., proxies) or a `known_hosts` for strict host checking.
-3. Add the Borg settings to your inventory:
+3. Add the Borg settings to the inventory:
    ```yaml
    borg_encryption_passphrase: <passphrase for borg encryption>
    borg_remote_path: <command to run borg on the repository, e.g., borg1>
@@ -53,5 +53,4 @@ The Borg role is skipped unless the SSH key and all three inventory settings are
 Store the Borg encryption passphrase somewhere other than this repository's vaults (e.g., a password manager).
 Without it, the backups cannot be restored.
 
-Other settings, such as the retention policy and backup schedule, have defaults in `ansible/roles/borg/defaults/main.yml`.
-They can be overridden in the inventory.
+Other settings, such as the retention policy and backup schedule, have defaults that can be overridden in the inventory (see [Variables](reference/index.md#backups)).

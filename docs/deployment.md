@@ -6,8 +6,8 @@ title: Deploying
 
 ## DNS
 
-If you use your own domain (set by `app_url` and `api_url` in the inventory), update your domain's DNS settings so that the app host, and the API host if it is separate, point to the IP of the server.
-Do this before the first deployment, as the SSL certificates cannot be issued until DNS resolves correctly.
+Point the DNS records for `app_url`, and for `api_url` if it is a separate host, at the server's IP address.
+Do this before the first deployment, as SSL certificates cannot be issued until DNS resolves.
 
 ## Running the playbook
 
@@ -24,9 +24,7 @@ uv run ansible-playbook --ask-vault-pass -i ansible/inventory.yml ansible/playbo
 ```
 
 The playbook installs all prerequisite services, builds the Docker containers, connects them via NGINX and adds hardening services such as fail2ban.
-If it completes successfully, the server will be running *datalab* at your configured URLs.
-
-See the [checklist](checklist.md) for common tasks after the first deployment, such as creating an admin account.
+When it completes, *datalab* is running at the configured URLs.
 
 ## Running individual parts
 
@@ -46,6 +44,6 @@ make borg         # configure Borg backups
 make monitoring   # configure Prometheus monitoring
 ```
 
-Once the instance is running, work through the [deployment checklist](checklist.md) for the tasks that follow a first deployment, such as setting up logins, an admin account and backups.
+After the first deployment, work through the [deployment checklist](checklist.md): logins, an admin account, backups and so on.
 
-To update *datalab* or the playbooks later, see [Updating](updating.md).
+Later updates to *datalab* and the playbooks are covered in [Updating](updating.md).

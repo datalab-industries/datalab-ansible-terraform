@@ -7,7 +7,7 @@ title: Rootless Docker and managed hosts
 By default, the playbook manages the whole server.
 It bootstraps the `ansible_user` as root, installs system packages and Docker, and configures fail2ban and sshd.
 
-On servers managed by someone else, such as a university IT service, you may not have root access.
+Servers managed by someone else, such as a university IT service, may not allow root access.
 Docker may also be provided as a [rootless daemon](https://docs.docker.com/engine/security/rootless/) owned by a separate user.
 Both cases are configured in the inventory:
 
@@ -20,7 +20,7 @@ docker_shared_group: datalab  # a group containing both users, used to share syn
 # docker_host: unix:///run/user/<uid>/docker.sock  # optional; defaults to the docker_user's rootless socket
 ```
 
-These settings are independent, so you can use any combination of them.
+The settings are independent and can be combined freely.
 
 ## `manage_system: false`
 
@@ -28,6 +28,16 @@ The playbook skips bootstrapping, disk mounting, package installation, fail2ban,
 It only checks that the configured Docker daemon is reachable, then deploys the *datalab* services.
 
 Docker and the Python Docker SDK must already be installed on the server.
+
+## Keeping Docker up to date
+
+With `manage_system: false` or `docker_rootless: true`, the playbook does not install or upgrade Docker, so whoever manages the server must keep it up to date.
+
+The *datalab* builds need Docker Engine with the [buildx](https://docs.docker.com/build/concepts/overview/#buildx) plugin and the [Compose](https://docs.docker.com/compose/install/) plugin, v2.37.0 or newer.
+The app image is built on top of the API image through a `service:` build context, which needs Compose to build with [Bake](https://docs.docker.com/guides/compose-bake/).
+`make deploy` checks the Compose version first and stops if it is too old.
+
+Check the installed versions with `docker compose version` and `docker buildx version`, run as `docker_user` for a rootless daemon.
 
 ## `manage_nginx: false`
 

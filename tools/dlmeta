@@ -77,7 +77,12 @@ RUN_JOBS = 8
 NIGHTLY_REF = "origin/main"
 # What `dlmeta sync` runs in a deployment, and everything that the script overwrites
 SYNC_SCRIPT = "sync-ansible-upstream.sh"
-SYNC_PATHS = ("ansible", "Makefile", ".vault-pass.sh", "README.md", "requirements.in", "requirements.txt", SYNC_SCRIPT)
+SYNC_PATHS = (
+    "ansible", "Makefile", ".vault-pass.sh", "README.md", "requirements.in", "requirements.txt", SYNC_SCRIPT,
+    "docs", "zensical.toml", "CHECKLIST.md", ".gitignore",
+)
+# Where the "Supported versions" table lives in a release of the rules, newest layout first
+SUPPORTED_VERSIONS_FILES = ("docs/index.md", "README.md")
 # `dlmeta run -- make maintenance` skips deployments that succeeded more recently than this (seconds)
 MAINTENANCE_RERUN_AFTER = 24 * 3600
 # Per-repo limit for decrypting an inventory during `discover`
@@ -1084,18 +1089,19 @@ def cmd_deploy(args) -> None:
 
 
 def _supported_datalab_warning(repo: Path, commit: str, name: str) -> str | None:
-    """A warning if the "Supported versions" table in the README at `commit` of the rules submodule
-    has a row for that release that doesn't include the deployment's datalab version."""
+    """A warning if the "Supported versions" table in the docs (or, for older releases, the README) at
+    `commit` of the rules submodule has a row for that release that doesn't include the deployment's
+    datalab version."""
     rules = repo / SOURCES["rules"][1]
     version, datalab = _parse(name), _parse(_git(repo / SOURCES["datalab"][1], "describe", "--tags", "--match", "v*") or "")
-    readme = _git(rules, "show", f"{commit}:README.md") or ""
+    readme = next(filter(None, (_git(rules, "show", f"{commit}:{path}") for path in SUPPORTED_VERSIONS_FILES)), "")
     if version is None or datalab is None:
         return None
     rows = re.findall(r"^\|\s*v(\d+\.\d+)\.x\s*\|\s*(v(\d+\.\d+)\.x\S*)\s*\|", readme, flags=re.M)
     supported = [(line, shown) for rules_line, shown, line in rows if rules_line == f"{version.release[0]}.{version.release[1]}"]
     if not supported or f"{datalab.release[0]}.{datalab.release[1]}" in [line for line, _ in supported]:
         return None
-    return f"its README lists datalab {', '.join(shown for _, shown in supported)}, this is on {datalab}"
+    return f"its supported versions list datalab {', '.join(shown for _, shown in supported)}, this is on {datalab}"
 
 
 def _plan_sync(repo: Path, to: str) -> dict:

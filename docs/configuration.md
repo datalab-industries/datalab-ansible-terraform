@@ -9,7 +9,7 @@ There are two main sources of configuration:
 1. The Ansible inventory, which tells Ansible which hosts to deploy to and how.
 2. The *datalab* configuration files, stored in `ansible/vaults`.
 
-Both should be encrypted before committing (see [Encrypting the configuration](#encrypting-the-configuration)).
+Both must be encrypted before committing (see [Encrypting the configuration](#encrypting-the-configuration)).
 
 ## Ansible inventory
 
@@ -22,7 +22,7 @@ The example lists every setting most deployments need:
 --8<-- "ansible/inventory.example.yml"
 ```
 
-Replace `<hostname>` and each setting with your own values, and delete the ones you do not need. Only `ansible_user`, `api_url` and `app_url` are required.
+Replace `<hostname>` and each value, and delete the settings that are not needed. Only `ansible_user`, `api_url` and `app_url` are required.
 
 The API can be served in one of two ways:
 
@@ -39,9 +39,9 @@ The `manage_*` and `docker_*` settings are described in [Rootless Docker and man
 
 Every variable the playbooks accept is listed under [Variables](reference/index.md), including the ones most deployments never change.
 
-Each role declares its variables in `meta/argument_specs.yml`, and Ansible validates your inventory against those specs at the start of every run, before any task changes the server.
-This happens even under `--check` and when running a single tag, so a missing required setting or a value of the wrong type stops the run immediately, naming the role and the variable.
-Note that a variable whose name is misspelled is not recognised at all, so it is ignored rather than reported.
+Each role declares its variables in `meta/argument_specs.yml`, and Ansible validates the inventory against them at the start of every run, before any task changes the server.
+This also happens under `--check` and when running a single tag, so a missing required setting or a value of the wrong type stops the run, naming the role and the variable.
+A misspelled variable name is not recognised at all, so it is ignored rather than reported.
 
 ## *datalab* configuration
 
@@ -56,9 +56,7 @@ See the [*datalab* configuration docs](https://docs.datalab-org.io/en/stable/con
 
 ## Encrypting the configuration
 
-Version control these files **with encryption** in your fork.
-Never commit them without encryption, even to a private repository.
-
+Commit these files **only when encrypted**, even to a private repository.
 To encrypt them, run the following from the root of the repository:
 
 ```shell
@@ -74,9 +72,8 @@ uv run ansible-vault encrypt ansible/inventory.yml ansible/vaults/datalab/prod_c
 Files in the `.ssh` directories must each be encrypted individually.
 `make encrypt-vaults` encrypts every file under `ansible/vaults`.
 
-Provide a password when prompted.
-Keep this password safe, as it is needed every time the playbook is run.
-To avoid typing it each time, see [Vault password with Bitwarden](bitwarden.md).
+Choose a vault password when prompted, and store it safely: every playbook run needs it.
+[Vault password with Bitwarden](bitwarden.md) avoids typing it each time.
 
 To edit an encrypted file later, run:
 

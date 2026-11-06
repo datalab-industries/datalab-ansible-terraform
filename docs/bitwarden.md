@@ -4,12 +4,10 @@ title: Vault password with Bitwarden
 
 # Vault password with Bitwarden
 
-Entering the vault password for every deployment is tedious.
-If the unofficial Bitwarden client [rbw](https://github.com/doy/rbw) is installed, the `Makefile` will use it to fetch the vault password.
-rbw only needs your Bitwarden password once per session, or can be configured to stay logged in.
-If rbw is not installed, the `Makefile` asks for the vault password instead.
+If the unofficial Bitwarden client [rbw](https://github.com/doy/rbw) is installed, the `Makefile` uses it to fetch the vault password instead of prompting for it.
+rbw asks for the Bitwarden password once per session, or can be configured to stay logged in.
 
-Store the vault password in Bitwarden with the same name as your repository, as reported by:
+Store the vault password in Bitwarden under the repository name, as reported by:
 
 ```shell
 $ git remote get-url origin
@@ -18,14 +16,13 @@ git@github.com:datalab-org/datalab-demo-deployment
                                repository name
 ```
 
-If you cloned the repository and then renamed it, update your local remote to match:
+If the repository was renamed after cloning, update the remote to match:
 
 ```shell
 git remote set-url origin <my-git-repo-url>
 ```
 
-You can also edit `.vault-pass.sh` to return the vault password in another way.
-Note that `.vault-pass.sh` is overwritten by `sync-ansible-upstream.sh`.
+`.vault-pass.sh` can also be edited to fetch the password another way, but `sync-ansible-upstream.sh` overwrites it.
 
 The script must be executable:
 

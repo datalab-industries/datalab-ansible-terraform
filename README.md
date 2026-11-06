@@ -7,7 +7,7 @@
 </div>
 
 Ansible playbooks for deploying [*datalab*](https://github.com/datalab-org/datalab) instances.
-Use this repository as a template for your own deployment and resync it when new versions are released.
+Each deployment is a copy of this template repository, resynced when new versions are released.
 
 ## Quick start
 
@@ -23,11 +23,11 @@ make
 ## Documentation
 
 - [`docs/`](docs/index.md): template documentation, published at [datalab-industries.github.io/datalab-ansible-terraform](https://datalab-industries.github.io/datalab-ansible-terraform/). Preview it locally with `make docs`.
-- [`CHECKLIST.md`](CHECKLIST.md): setup and maintenance tasks for your deployment, published with the docs.
-- [`deployment-notes/`](deployment-notes/index.md): Markdown notes for your deployment, kept out of the published site.
+- [`CHECKLIST.md`](CHECKLIST.md): setup and maintenance tasks for the deployment, published with the docs.
+- [`deployment-notes/`](deployment-notes/index.md): Markdown notes for the deployment, kept out of the published site.
 
 `README.md` and `docs/` are overwritten by `sync-ansible-upstream.sh`.
-`deployment-notes/` is never touched, and new upstream items in `CHECKLIST.md` are merged into your copy.
+`deployment-notes/` is never touched, and new upstream items in `CHECKLIST.md` are merged into the local copy.
 
 The Terraform/OpenTofu plans in `./terraform` are no longer actively supported (see [docs/terraform.md](docs/terraform.md)).
 

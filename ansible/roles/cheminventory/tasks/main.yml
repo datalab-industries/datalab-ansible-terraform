@@ -34,13 +34,15 @@
           DATALAB_API_URL={{ cheminventory_datalab_api_url }}
       no_log: true
 
-    - name: Pull ChemInventory sync image
-      become: "{{ docker_become }}"
-      become_user: "{{ docker_user }}"
-      community.docker.docker_image:
-        name: "{{ cheminventory_image }}"
-        tag: "{{ cheminventory_image_version }}"
-        source: pull
+    # Tags are applied so the included tasks run whenever this role does
+    - name: Build ChemInventory sync image
+      ansible.builtin.include_tasks:
+        file: "{{ playbook_dir }}/tasks/build_local_image.yml"
+        apply:
+          tags: [always]
+      loop: [cheminventory]
+      loop_control:
+        loop_var: local_image
 
     - name: Add cron job for ChemInventory sync
       become: "{{ docker_become }}"
@@ -54,4 +56,4 @@
         day: "{{ cron_fields[2] }}"
         month: "{{ cron_fields[3] }}"
         weekday: "{{ cron_fields[4] }}"
-        job: export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; docker run --rm --env-file {{ cheminventory_config_dir }}/.env {{ cheminventory_image }}:{{ cheminventory_image_version }} uv run datalab-cheminventory-sync > {{ cheminventory_log_file }} 2>&1 || cat {{ cheminventory_log_file }}  # noqa: line-length
+        job: export PATH={{ docker_cron_path }} DOCKER_HOST={{ docker_host }}; docker run --rm --env-file {{ cheminventory_config_dir }}/.env datalab-cheminventory uv run datalab-cheminventory-sync > {{ cheminventory_log_file }} 2>&1 || cat {{ cheminventory_log_file }}  # noqa: line-length

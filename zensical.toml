@@ -49,6 +49,7 @@ nav = [
     { "Emails for failed cron jobs" = "cron-email.md" },
     { "ChemInventory syncing" = "cheminventory.md" },
     { "Plugins" = "plugins.md" },
+    { "Local patches to datalab" = "patches.md" },
     { "Additional containers" = "extras.md" },
     { "Rootless Docker and managed hosts" = "managed-hosts.md" },
     { "Vault password with Bitwarden" = "bitwarden.md" },

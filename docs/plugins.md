@@ -36,3 +36,4 @@ To install plugins:
 
 To remove all plugins, delete `./src/plugins.toml` and redeploy.
 This reverts to the base lockfile without plugins.
+Plugin folders removed from `./src/plugins/` (or the whole folder) are also removed from the server on the next deployment.

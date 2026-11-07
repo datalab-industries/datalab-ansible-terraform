@@ -15,7 +15,7 @@ commit=$(cd src/datalab-ansible-terraform && git describe --tags)
 # Files owned by the upstream template.
 # Deployment-specific files (vaults, inventory, deployment-notes/) are never synced;
 # CHECKLIST.md is merged rather than overwritten, see below.
-rsync --exclude vaults --exclude inventory.yml -avr "$UPSTREAM/sync-ansible-upstream.sh" "$UPSTREAM/Makefile" "$UPSTREAM/.vault-pass.sh" "$UPSTREAM/README.md" "$UPSTREAM/requirements.in" "$UPSTREAM/requirements.txt" "$UPSTREAM/zensical.toml" "$UPSTREAM/ansible" .
+rsync --exclude vaults --exclude inventory.yml -avr "$UPSTREAM/sync-ansible-upstream.sh" "$UPSTREAM/apply-patches.sh" "$UPSTREAM/Makefile" "$UPSTREAM/.vault-pass.sh" "$UPSTREAM/README.md" "$UPSTREAM/requirements.in" "$UPSTREAM/requirements.txt" "$UPSTREAM/zensical.toml" "$UPSTREAM/ansible" .
 # docs/ is fully owned by upstream, so also remove pages that were removed upstream.
 # docs/reference is generated locally by `make docs` and is left alone.
 rsync --delete --exclude reference -avr "$UPSTREAM/docs/" docs/
@@ -63,6 +63,6 @@ fi
 
 git add -p ansible
 git add $(git ls-files ansible --others --exclude-standard)
-git add src/datalab-ansible-terraform docs zensical.toml .gitignore
+git add src/datalab-ansible-terraform apply-patches.sh docs zensical.toml .gitignore
 git commit -m "Sync with upstream definitions from datalab-ansible-terraform $commit"
 echo "Review and commit any remaining changes to CHECKLIST.md, Makefile, README.md, requirements.* and .vault-pass.sh separately."

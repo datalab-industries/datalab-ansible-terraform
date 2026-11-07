@@ -20,6 +20,10 @@ make deploy
 
 Read the [*datalab* release notes](https://github.com/datalab-org/datalab/releases) and check that backups work before updating.
 
+The `datalab` folder on the server is synced to match `src/datalab` exactly, including any [local patches](patches.md), and files that are not in `src/datalab` are removed.
+Only the files that the playbook manages itself are kept: the config and env files, plugins and `plugins.toml`, and `webapp/public/custom`.
+The `files/` and `logs/` folders, which older versions of *datalab* kept inside the repository, are also left alone; move or remove them by hand if they are still there.
+
 The submodule can point to a fork of *datalab* with custom changes.
 Any Ansible rules or configuration those changes need must then be maintained alongside the fork.
 
@@ -60,9 +64,9 @@ cd ../..
 ./sync-ansible-upstream.sh
 ```
 
-The script copies the upstream playbooks, `Makefile`, `README.md`, `requirements.*`, `.vault-pass.sh`, `docs/` and `zensical.toml` into the deployment repository.
+The script copies the upstream playbooks, `Makefile`, `README.md`, `requirements.*`, `.vault-pass.sh`, `apply-patches.sh`, `docs/` and `zensical.toml` into the deployment repository.
 It asks for each change to the `ansible` directory to be reviewed before staging it, which matters most when the playbooks have local changes.
-It then commits the playbooks, `docs/`, `zensical.toml` and the submodule update, so the history records exactly which version of the playbooks is running.
+It then commits the playbooks, `apply-patches.sh`, `docs/`, `zensical.toml` and the submodule update, so the history records exactly which version of the playbooks is running.
 Changes to the other copied files are left uncommitted for review.
 Files that upstream has deleted from `ansible/` are removed too, unless they have local changes, in which case the script keeps them and says so.
 

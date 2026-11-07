@@ -11,7 +11,8 @@ That copy is then synced to the server in its place, so the `./src/datalab` subm
 If any patch does not apply cleanly (e.g., after updating the *datalab* submodule), the deployment fails before anything is synced, and the patch must be regenerated.
 Running the playbook with `--check` also validates that the patches apply.
 
-Deployments without a `./src/patches/datalab/` directory are unaffected.
+Without a `./src/patches/datalab/` directory, no patching is done and `./src/datalab` is synced as it is.
+In both cases the *datalab* folder on the server is made to match what is synced, removing any other files (see [Updating *datalab*](updating.md#updating-datalab)).
 
 ## Creating a patch
 

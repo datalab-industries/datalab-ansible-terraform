@@ -23,6 +23,17 @@ shopt -s nullglob
 PATCHES_ROOT="${PATCHES_ROOT:-src/patches}"
 SOURCE_ROOT="${SOURCE_ROOT:-src}"
 
+# Succeeds if a patch applies cleanly to $1 with the remaining arguments to `git apply`.
+# `git apply --check` only warns about file mode mismatches, so a mode-only patch (e.g.
+# making a script executable) would otherwise also "apply" in reverse to an unpatched
+# checkout and be skipped as already applied; a mode mismatch is treated as not applying.
+applies_cleanly() {
+    local target=$1 output
+    shift
+    output=$(git -C "$target" apply --check "$@" 2>&1) || return 1
+    ! grep -q 'has type [0-7]*, expected [0-7]*' <<< "$output"
+}
+
 revert=false
 names=()
 for arg in "$@"; do
@@ -75,10 +86,10 @@ for name in "${names[@]}"; do
         patch_path="$(cd "$(dirname "$patch")" && pwd)/$(basename "$patch")"
         label="$name/$(basename "$patch")"
         if [ "$revert" = true ]; then
-            if git -C "$target" apply --check --reverse "$patch_path" 2>/dev/null; then
+            if applies_cleanly "$target" --reverse "$patch_path"; then
                 git -C "$target" apply --reverse "$patch_path"
                 echo "Reverted  $label"
-            elif git -C "$target" apply --check "$patch_path" 2>/dev/null; then
+            elif applies_cleanly "$target" "$patch_path"; then
                 echo "Skipping  $label (not applied)"
             else
                 echo "Error: $label cannot be reverted cleanly from $target:" >&2
@@ -88,9 +99,9 @@ for name in "${names[@]}"; do
                 exit 1
             fi
         else
-            if git -C "$target" apply --check --reverse "$patch_path" 2>/dev/null; then
+            if applies_cleanly "$target" --reverse "$patch_path"; then
                 echo "Skipping  $label (already applied)"
-            elif git -C "$target" apply --check "$patch_path" 2>/dev/null; then
+            elif applies_cleanly "$target" "$patch_path"; then
                 git -C "$target" apply "$patch_path"
                 echo "Applied   $label"
             else

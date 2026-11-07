@@ -65,7 +65,7 @@
 
         - name: Apply local patches to staged datalab
           ansible.builtin.command:
-            cmd: "{{ playbook_dir }}/../apply-patches.sh datalab"
+            cmd: ./apply-patches.sh datalab
             chdir: "{{ playbook_dir }}/.."
           environment:
             SOURCE_ROOT: "{{ datalab_staging.path }}"

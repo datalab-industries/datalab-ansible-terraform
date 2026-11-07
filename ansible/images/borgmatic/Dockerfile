@@ -1,1 +1,1 @@
-FROM ghcr.io/borgmatic-collective/borgmatic:2.1.10
+FROM ghcr.io/borgmatic-collective/borgmatic:2.2.0

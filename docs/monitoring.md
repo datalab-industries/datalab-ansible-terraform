@@ -14,11 +14,7 @@ For example, the central *datalab* organisation uses it at [datalab-org/datalab-
 The `monitoring` role installs [Prometheus](https://prometheus.io/) and [Node Exporter](https://github.com/prometheus/node_exporter) to collect metrics from the host.
 If [Borg backups](backups.md) are enabled, their status is also reported.
 
-Per-container metrics from [cAdvisor](https://github.com/google/cadvisor) can be enabled by setting `monitoring_cadvisor: true` in the inventory.
-It uses noticeably more CPU than the other exporters, so it is off by default.
-When it is off, any existing cAdvisor container is removed.
-
-If the server already runs its own exporters on the default ports, change them with `monitoring_node_exporter_port` (9100), `monitoring_prometheus_port` (9090) and `monitoring_cadvisor_port` (8080).
+If the server already runs its own exporters on the default ports, change them with `monitoring_node_exporter_port` (9100) and `monitoring_prometheus_port` (9090).
 
 The local Prometheus sends metrics to a remote Prometheus server, which can be:
 

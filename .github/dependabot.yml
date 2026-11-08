@@ -10,7 +10,7 @@ updates:
   - dependency_updates
   groups:
     monitoring:
-      patterns: ["prom/*", "gcr.io/cadvisor/*"]
+      patterns: ["prom/*"]
 - package-ecosystem: "github-actions"
   directory: "/"
   schedule:

@@ -5,16 +5,6 @@
     - prometheus_user is defined
     - prometheus_password is defined
   block:
-    - name: Get rootless docker data root
-      when: docker_rootless and monitoring_cadvisor | bool
-      become: "{{ docker_become }}"
-      become_user: "{{ docker_user }}"
-      ansible.builtin.command:
-        cmd: docker info --format {% raw %}'{{ .DockerRootDir }}'{% endraw %}
-      register: docker_root_dir
-      changed_when: false
-      check_mode: false
-
     - name: Check whether host has /etc/timezone
       ansible.builtin.stat:
         path: /etc/timezone
@@ -26,7 +16,7 @@
         file: "{{ playbook_dir }}/tasks/build_local_image.yml"
         apply:
           tags: [always]
-      loop: "{{ ['node-exporter', 'prometheus'] + (['cadvisor'] if monitoring_cadvisor | bool else []) }}"
+      loop: [node-exporter, prometheus]
       loop_control:
         loop_var: local_image
 
@@ -71,50 +61,20 @@
           - /sys:/host/sys:ro
           - /etc/machine-id:/etc/machine-id:ro
 
-    - name: Launch cadvisor container
-      when: monitoring_cadvisor | bool
-      become: "{{ docker_become }}"
-      become_user: "{{ docker_user }}"
-      community.docker.docker_container:
-        name: cadvisor
-        image: datalab-cadvisor
-        network_mode: host
-        pid_mode: host
-        state: healthy
-        healthy_wait_timeout: 120
-        restart_policy: always
-        # The defaults (1s housekeeping, per-container disk usage scans) use a lot
-        # of CPU for metrics that prometheus only scrapes once a minute
-        command:
-          - --port={{ monitoring_cadvisor_port }}
-          - --housekeeping_interval=30s
-          - --disable_metrics=advtcp,cpu_topology,disk,hugetlb,memory_numa,percpu,process,referenced_memory,resctrl,sched,tcp,udp
-        volumes: "{{ cadvisor_common_volumes + (cadvisor_rootless_volumes if docker_rootless else cadvisor_rootful_volumes) }}"
-        healthcheck:
-          test: [CMD, wget, -q, --spider, "http://localhost:{{ monitoring_cadvisor_port }}/healthz"]
-          interval: 30s
-          timeout: 10s
-          retries: 3
-          start_period: 5s
-      vars:
-        cadvisor_common_volumes:
-          - /:/rootfs:ro
-          - /sys:/sys:ro
-        cadvisor_rootful_volumes:
-          - /var/run:/var/run:rw
-          - /var/lib/docker/:/var/lib/docker:ro
-        # The daemon socket at the default path, and the data root at the path
-        # the daemon reports so cadvisor can find container layers
-        cadvisor_rootless_volumes:
-          - "{{ docker_host | regex_replace('^unix://', '') }}:/var/run/docker.sock:ro"
-          - "{{ docker_root_dir.stdout | default('') }}:{{ docker_root_dir.stdout | default('') }}:ro"
-
+    # cAdvisor was removed from the playbook; clean up hosts that still run it.
+    # This can be dropped once all deployments have been redeployed.
     - name: Remove cadvisor container
-      when: not monitoring_cadvisor | bool
       become: "{{ docker_become }}"
       become_user: "{{ docker_user }}"
       community.docker.docker_container:
         name: cadvisor
+        state: absent
+
+    - name: Remove local cadvisor image
+      become: "{{ docker_become }}"
+      become_user: "{{ docker_user }}"
+      community.docker.docker_image:
+        name: datalab-cadvisor
         state: absent
 
     - name: Render prometheus config

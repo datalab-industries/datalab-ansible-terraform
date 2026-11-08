@@ -64,4 +64,4 @@ Borg configuration and metrics are stored in the `docker_user`'s home directory,
 - `ansible_user_home_dir`: where the *datalab* repository, NGINX files and other deployment files are kept.
   It defaults to the `ansible_user`'s home directory.
   Override it for accounts whose home is elsewhere, such as a service account.
-- `monitoring_node_exporter_port`, `monitoring_prometheus_port` and `monitoring_cadvisor_port`: change these if the server already runs its own exporters on those ports (see [Monitoring](monitoring.md)).
+- `monitoring_node_exporter_port` and `monitoring_prometheus_port`: change these if the server already runs its own exporters on those ports (see [Monitoring](monitoring.md)).

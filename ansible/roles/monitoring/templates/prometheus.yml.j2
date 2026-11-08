@@ -15,13 +15,6 @@ scrape_configs:
         labels:
           service: system
 
-{% if monitoring_cadvisor | bool %}
-  - job_name: 'cadvisor'
-    static_configs:
-      - targets: ['localhost:{{ monitoring_cadvisor_port }}']
-        labels:
-          service: docker
-{% endif %}
 
 remote_write:
   - url: {{ prometheus_remote_write_url }}

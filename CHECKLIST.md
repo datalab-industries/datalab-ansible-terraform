@@ -90,7 +90,6 @@ Without Borg, only *datalab*'s native snapshots are taken, and they are stored o
 - [ ] Set up uptime monitoring, e.g., with [Upptime](https://github.com/upptime/upptime) (`docs/monitoring.md`).
 - [ ] Get access to a Prometheus/Grafana instance that accepts remote writes, e.g. the central *datalab* one, or a self-hosted one from [datalab-grafana-deployment](https://github.com/datalab-industries/datalab-grafana-deployment).
 - [ ] Set `datalab_prefix`, `prometheus_remote_write_url`, `prometheus_user` and `prometheus_password` in the inventory.
-- [ ] **Optional:** set `monitoring_cadvisor: true` for per-container metrics.
 - [ ] Run `make monitoring` and check that metrics appear in Grafana.
 - [ ] Set up alerts for disk space, container health and failed backups.
 

@@ -268,13 +268,6 @@ argument_specs:
         description:
           - Label that identifies this instance in the collected metrics.
           - Defaults to app_url.
-      monitoring_cadvisor:
-        type: bool
-        required: false
-        description:
-          - Whether to run cAdvisor for per-container metrics.
-          - It uses noticeably more CPU than the other exporters. When false, any existing cAdvisor container
-            is removed.
       monitoring_node_exporter_port:
         type: int
         required: false
@@ -283,10 +276,6 @@ argument_specs:
         type: int
         required: false
         description: Port for Prometheus. Change it if the host already runs its own.
-      monitoring_cadvisor_port:
-        type: int
-        required: false
-        description: Port for cAdvisor. Change it if the host already runs its own.
 
       # Emails for failed cron jobs
       cron_mailto:

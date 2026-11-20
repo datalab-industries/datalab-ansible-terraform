@@ -11,6 +11,9 @@ updates:
   groups:
     monitoring:
       patterns: ["prom/*"]
+  cooldown:
+    default-days: 3
+    exclude: ["nginx"]
 - package-ecosystem: "github-actions"
   directory: "/"
   schedule:

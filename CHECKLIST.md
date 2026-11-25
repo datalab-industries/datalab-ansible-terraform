@@ -27,6 +27,7 @@ For *datalab* settings, see the [*datalab* configuration docs](https://docs.data
 
 ## First deployment
 
+- [ ] Review the [security policy file](https://github.com/datalab-org/datalab/blob/main/SECURITY.md) in the main datalab repository.
 - [ ] Run `make` and check that it completes without errors.
 - [ ] Open `app_url` in a browser and check that the app loads and can reach the API.
 
@@ -114,6 +115,8 @@ Without Borg, only *datalab*'s native snapshots are taken, and they are stored o
 - [ ] Update *datalab* after reading the release notes and checking backups (`docs/updating.md`).
 - [ ] Sync with the upstream template with `./sync-ansible-upstream.sh`.
 - [ ] Record changes and incidents in `deployment-notes/`.
+- [ ] Join the #deployment channel on Slack for early notification of draft advisories.
+- [ ] Subscribe to repository security updates on GitHub for the [core repository](https://github.com/datalab-org/datalab).
 
 ## Deployment-specific items
 
